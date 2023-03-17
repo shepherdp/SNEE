@@ -30,11 +30,18 @@ class Bound:
             return False
 
 def coin_flip(p):
+    '''
+    Returns True p% of the time, False 1-p% of the time.
+
+    :param p: Probability to return True
+    :return: Boolean
+    '''
     return rnd.random() < p
 
 def dist(vec1, vec2):
     """
     Extract visible dimensions from param:vec2 and compare them to param:vec1.
+
     :param vec1: perceiving agent's feature vector
     :param vec2: perceived agent's feature vector
     :return: Hamming distance between visible dimensions of param:vec1 and param:vec2
@@ -64,3 +71,11 @@ PROB = Bound(0., 1.)
 POSNUM = Bound(0, MAXINT_32)
 SYMNUM = Bound(-MAXINT_32, MAXINT_32)
 SYMBIN = Bound(-1., 1.)
+
+# Lists to hold agents in different categories.
+CONFORMING = ['default']
+REBELLING = []
+
+HOMOPHILIC = ['default']
+HETEROPHILIC = []
+MESOPHILIC = []
