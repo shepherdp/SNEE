@@ -9,6 +9,7 @@ TESTCOUNT = 0
 PASSCOUNT = 0
 FAILTESTS = []
 verbose = False
+
 def unittest(did_pass):
     """
     Print the result of a unit test.
@@ -1051,6 +1052,1012 @@ def test_3_46():
     except networkx.NetworkXError:
         return True
 
+# The 4 run of tests is for ensuring that functionality around masks is working correctly.
+
+def test_4_01():
+    # Check that masks are updated appropriately when edges are added in Graph.
+    s = SocialNetwork(n=2, weight_dist='constant', normalize=True)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_02():
+    # Check that masks are updated appropriately when edges are deleted in Graph.
+    s = SocialNetwork(n=3, weight_dist='constant', normalize=True)
+    s.connect(0, 1)
+    s.connect(0, 2)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1] and 2 in d[0] and 0 in d[2]
+
+def test_4_03():
+    # Check that masks are updated appropriately when edges are added in DiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, normalize=True)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_04():
+    # Check that masks are updated appropriately when edges are added in asymmetric DiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, symmetric=False, normalize=True)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 in d[1]
+
+def test_4_05():
+    # Check that masks are updated appropriately when edges are added in asymmetric DiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, symmetric=False, normalize=True)
+    s.connect(0, 1)
+    s.connect(1, 0)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 not in d[1]
+
+def test_4_06():
+    # Check that masks are updated appropriately when edges are added in MultiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', normalize=True, multiedge=True)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_07():
+    # Check that masks are updated appropriately when edges are added in MultiGraph.
+    s = SocialNetwork(n=3, weight_dist='constant', normalize=True, multiedge=True)
+    s.connect(0, 1, 'a')
+    s.connect(0, 1, 'b')
+    s.connect(0, 2)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1] and 2 in d[0] and 0 in d[2]
+
+def test_4_08():
+    # Check that masks are updated appropriately when edges are deleted in MultiGraph.
+    s = SocialNetwork(n=3, weight_dist='constant', normalize=True, multiedge=True)
+    s.connect(0, 1)
+    s.connect(0, 2)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1] and 2 in d[0] and 0 in d[2]
+
+def test_4_09():
+    # Check that masks are updated appropriately when edges are deleted in MultiGraph.
+    s = SocialNetwork(n=3, weight_dist='constant', normalize=True, multiedge=True)
+    s.connect(0, 1, 'a')
+    s.connect(0, 1, 'b')
+    s.connect(0, 2)
+    s.disconnect(0, 1, 'a')
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1] and 2 in d[0] and 0 in d[2]
+
+def test_4_10():
+    # Check that masks are updated appropriately when edges are deleted in MultiGraph.
+    s = SocialNetwork(n=3, weight_dist='constant', normalize=True, multiedge=True)
+    s.connect(0, 1, 'a')
+    s.connect(0, 1, 'b')
+    s.connect(0, 2)
+    s.disconnect(0, 1, 'a')
+    s.disconnect(0, 1, 'b')
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1] and 2 in d[0] and 0 in d[2]
+
+def test_4_11():
+    # Check that masks are updated appropriately when edges are added in MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_12():
+    # Check that masks are updated appropriately when edges are added in MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True)
+    s.connect(0, 1)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_13():
+    # Check that masks are updated appropriately when edges are deleted in MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True)
+    s.connect(0, 1)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1]
+
+def test_4_14():
+    # Check that masks are updated appropriately when edges are deleted in MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True)
+    s.connect(0, 1, 'a')
+    s.connect(0, 1, 'b')
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1]
+
+def test_4_15():
+    # Check that masks are updated appropriately when edges are deleted in MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True)
+    s.connect(0, 1, 'a')
+    s.connect(0, 1, 'b')
+    s.disconnect(0, 1, 'a')
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_16():
+    # Check that masks are updated appropriately when edges are added in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1)
+    s.connect(1, 0)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_17():
+    # Check that masks are updated appropriately when edges are added in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1)
+    s.connect(0, 1)
+    s.connect(1, 0)
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_18():
+    # Check that masks are updated appropriately when edges are added in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 in d[1]
+
+def test_4_19():
+    # Check that masks are updated appropriately when edges are deleted in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1]
+
+def test_4_20():
+    # Check that masks are updated appropriately when edges are deleted in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1)
+    s.connect(0, 1)
+    s.disconnect(0, 1)
+    d = s.prop('masks')
+    return 1 not in d[0] and 0 not in d[1]
+
+def test_4_21():
+    # Check that masks are updated appropriately when edges are deleted in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, weight_dist='constant', directed=True, multiedge=True, normalize=True, symmetric=False)
+    s.connect(0, 1, 'a')
+    s.connect(1, 0, 'a')
+    s.connect(0, 1, 'b')
+    s.disconnect(0, 1, 'a')
+    d = s.prop('masks')
+    return 1 in d[0] and 0 in d[1]
+
+def test_4_22():
+    # Make sure masks get initialized properly when hidden.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden')
+    s.connect(0, 1)
+    v = s.get_view(1, 0)
+    return sum(v) == 0
+
+def test_4_23():
+    # Make sure masks get initialized properly when visible.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible')
+    s.connect(0, 1)
+    v = s.get_view(1, 0)
+    d = s.prop('diffusion_space')[0]
+    return all(v == d)
+
+def test_4_24():
+    # Make sure reveal works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden')
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == 0
+
+def test_4_25():
+    # Make sure reveal works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden')
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    s.reveal(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == s.prop('diffusion_space')[1][2]
+
+def test_4_26():
+    # Make sure reveal works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == 0
+
+def test_4_27():
+    # Make sure reveal works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    s.reveal(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == s.prop('diffusion_space')[1][2]
+
+def test_4_28():
+    # Make sure reveal works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and 1 not in s.prop('masks')[0]
+
+def test_4_29():
+    # Make sure reveal works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    s.reveal(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == 0
+
+def test_4_30():
+    # Make sure reveal works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][0] and sum(v2) == 0
+
+def test_4_31():
+    # Make sure reveal works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 0)
+    s.reveal(1, 0, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][0] and sum(v2) == s.prop('diffusion_space')[1][0]
+
+def test_4_32():
+    # Make sure reveal works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == 0
+
+def test_4_33():
+    # Make sure reveal works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    s.reveal(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == s.prop('diffusion_space')[1][2]
+
+def test_4_34():
+    # Make sure reveal works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and 1 not in s.prop('masks')[0]
+
+def test_4_35():
+    # Make sure reveal works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal(0, 1, 1)
+    s.reveal(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == s.prop('diffusion_space')[0][1] and sum(v2) == 0
+
+def test_4_36():
+    # Make sure reveal_all works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden')
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_37():
+    # Make sure reveal_all works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden')
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_38():
+    # Make sure reveal_all works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_39():
+    # Make sure reveal_all works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_40():
+    # Make sure reveal_all works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and 1 not in s.prop('masks')[0]
+
+def test_4_41():
+    # Make sure reveal_all works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_42():
+    # Make sure reveal_all works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_43():
+    # Make sure reveal_all works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_44():
+    # Make sure reveal_all works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_45():
+    # Make sure reveal_all works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_46():
+    # Make sure reveal_all works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and 1 not in s.prop('masks')[0]
+
+def test_4_47():
+    # Make sure reveal_all works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='hidden', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.reveal_all(0, 1)
+    s.reveal_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == sum(s.prop('diffusion_space')[0]) and sum(v2) == 0
+
+def test_4_48():
+    # Make sure hide works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible')
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == sum(d1)
+
+def test_4_49():
+    # Make sure hide works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible')
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == sum(d1)
+
+def test_4_50():
+    # Make sure hide works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[0] and sum(v2) == sum(d1)
+
+def test_4_51():
+    # Make sure hide works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    s.hide(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == sum(d1) - d1[2]
+
+def test_4_52():
+    # Make sure hide works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    d0 = s.prop('diffusion_space')[0]
+    return sum(v1) == sum(d0) - d0[1] and 1 not in s.prop('masks')[0]
+
+def test_4_53():
+    # Make sure hide works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    s.hide(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == 0
+
+def test_4_54():
+    # Make sure hide works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[0] and sum(v2) == sum(d1)
+
+def test_4_55():
+    # Make sure hide works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 0)
+    s.hide(1, 0, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[0] and sum(v2) == sum(d1) - d1[0]
+
+def test_4_56():
+    # Make sure hide works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == sum(d1)
+
+def test_4_57():
+    # Make sure hide works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    s.hide(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == sum(d1) - d1[2]
+
+def test_4_58():
+    # Make sure hide works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    v1 = s.get_view(1, 0)
+    d0 = s.prop('diffusion_space')[0]
+    return sum(v1) == sum(d0) - d0[1] and 1 not in s.prop('masks')[0]
+
+def test_4_59():
+    # Make sure hide works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide(0, 1, 1)
+    s.hide(1, 0, 2)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    d0 = s.prop('diffusion_space')[0]
+    d1 = s.prop('diffusion_space')[1]
+    return sum(v1) == sum(d0) - d0[1] and sum(v2) == 0
+
+def test_4_60():
+    # Make sure hide_all works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible')
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_61():
+    # Make sure hide_all works properly in Graph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible')
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_62():
+    # Make sure hide_all works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_63():
+    # Make sure hide_all works properly in DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_64():
+    # Make sure hide_all works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == 0 and 1 not in s.prop('masks')[0]
+
+def test_4_65():
+    # Make sure hide_all works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_66():
+    # Make sure hide_all works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_67():
+    # Make sure hide_all works properly in MultiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_68():
+    # Make sure hide_all works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == sum(s.prop('diffusion_space')[1])
+
+def test_4_69():
+    # Make sure hide_all works properly in MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_70():
+    # Make sure hide_all works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    v1 = s.get_view(1, 0)
+    return sum(v1) == 0 and 1 not in s.prop('masks')[0]
+
+def test_4_71():
+    # Make sure hide_all works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=2, num_dimensions=3, visibility='visible', multiedge=True, directed=True, symmetric=False)
+    s.connect(0, 1)
+    s.hide_all(0, 1)
+    s.hide_all(1, 0)
+    v1 = s.get_view(1, 0)
+    v2 = s.get_view(0, 1)
+    return sum(v1) == 0 and sum(v2) == 0
+
+def test_4_72():
+    # Make sure broadcast works properly in Graph.
+    s = SocialNetwork(n=5, num_dimensions=3, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v = s.get_view(v, 0)
+        if v[0] != cmp or v[1] != 0 or v[2] != 0:
+            return False
+    return True
+
+def test_4_73():
+    # Make sure broadcast works properly in DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_74():
+    # Make sure broadcast works properly in DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    for v in nbrs:
+        s.broadcast(v, 1)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != s.prop('diffusion_space')[v][1] or v2[2] != 0:
+            return False
+    return True
+
+def test_4_75():
+    # Make sure broadcast works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='hidden', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_76():
+    # Make sure broadcast works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='hidden', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    for v in nbrs:
+        s.broadcast(v, 1)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_77():
+    # Make sure broadcast works properly in MultiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, multiedge=True, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v = s.get_view(v, 0)
+        if v[0] != cmp or v[1] != 0 or v[2] != 0:
+            return False
+    return True
+
+def test_4_78():
+    # Make sure broadcast works properly in MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_79():
+    # Make sure broadcast works properly in MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='hidden')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    for v in nbrs:
+        s.broadcast(v, 1)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != s.prop('diffusion_space')[v][1] or v2[2] != 0:
+            return False
+    return True
+
+def test_4_80():
+    # Make sure broadcast works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='hidden', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_81():
+    # Make sure broadcast works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='hidden', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.broadcast(0, 0)
+    for v in nbrs:
+        s.broadcast(v, 1)
+    cmp = s.prop('diffusion_space')[0][0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != cmp or v1[1] != 0 or v1[2] != 0:
+            return False
+        if v2[0] != 0 or v2[1] != 0 or v2[2] != 0:
+            return False
+    return True
+
+def test_4_82():
+    # Make sure nocast works properly in Graph.
+    s = SocialNetwork(n=5, num_dimensions=3, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v = s.get_view(v, 0)
+        if v[0] != 0 or v[1] != d0[1] or v[2] != d0[2]:
+            return False
+    return True
+
+def test_4_83():
+    # Make sure nocast works properly in DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != sum(s.prop('diffusion_space')[v]):
+            return False
+    return True
+
+def test_4_84():
+    # Make sure nocast works properly in DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    for v in nbrs:
+        s.nocast(v, 1)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if v2[0] != s.prop('diffusion_space')[v][0] or v2[1] != 0 or v2[2] != s.prop('diffusion_space')[v][2]:
+            return False
+    return True
+
+def test_4_85():
+    # Make sure nocast works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='visible', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != 0:
+            return False
+    return True
+
+def test_4_86():
+    # Make sure nocast works properly in asymmetric DiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, visibility='visible', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    for v in nbrs:
+        s.nocast(v, 1)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != 0:
+            return False
+    return True
+
+def test_4_87():
+    # Make sure nocast works properly in MultiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, multiedge=True, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v = s.get_view(v, 0)
+        if v[0] != 0 or v[1] != d0[1] or v[2] != d0[2]:
+            return False
+    return True
+
+def test_4_88():
+    # Make sure nocast works properly in MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != sum(s.prop('diffusion_space')[v]):
+            return False
+    return True
+#
+def test_4_89():
+    # Make sure nocast works properly in MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='visible')
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    for v in nbrs:
+        s.nocast(v, 1)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != sum(s.prop('diffusion_space')[v]) - s.prop('diffusion_space')[v][1]:
+            return False
+    return True
+
+def test_4_90():
+    # Make sure nocast works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='visible', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != 0:
+            return False
+    return True
+
+def test_4_91():
+    # Make sure nocast works properly in asymmetric MultiDiGraph.
+    s = SocialNetwork(n=5, num_dimensions=3, directed=True, multiedge=True, visibility='visible', symmetric=False)
+    nbrs = [1, 2, 3]
+    for v in nbrs:
+        s.connect(0, v)
+    s.nocast(0, 0)
+    for v in nbrs:
+        s.nocast(v, 1)
+    d0 = s.prop('diffusion_space')[0]
+    for v in nbrs:
+        v1 = s.get_view(v, 0)
+        v2 = s.get_view(0, v)
+        if v1[0] != 0 or v1[1] != d0[1] or v1[2] != d0[2]:
+            return False
+        if sum(v2) != 0:
+            return False
+    return True
+
 def testsuite():
     global PASSCOUNT, TESTCOUNT, FAILTESTS
 
@@ -1149,8 +2156,6 @@ def testsuite():
     unittest(test_2_54())
     unittest(test_2_55())
 
-
-
     # test_3_*
     unittest(test_3_00())
     unittest(test_3_01())
@@ -1199,6 +2204,99 @@ def testsuite():
     unittest(test_3_44())
     unittest(test_3_45())
     unittest(test_3_46())
+
+    # test_4_*
+    unittest(test_4_01())
+    unittest(test_4_02())
+    unittest(test_4_03())
+    unittest(test_4_04())
+    unittest(test_4_05())
+    unittest(test_4_06())
+    unittest(test_4_07())
+    unittest(test_4_08())
+    unittest(test_4_09())
+    unittest(test_4_10())
+    unittest(test_4_11())
+    unittest(test_4_12())
+    unittest(test_4_13())
+    unittest(test_4_14())
+    unittest(test_4_15())
+    unittest(test_4_16())
+    unittest(test_4_17())
+    unittest(test_4_18())
+    unittest(test_4_19())
+    unittest(test_4_20())
+    unittest(test_4_21())
+    unittest(test_4_22())
+    unittest(test_4_23())
+    unittest(test_4_24())
+    unittest(test_4_25())
+    unittest(test_4_26())
+    unittest(test_4_27())
+    unittest(test_4_28())
+    unittest(test_4_29())
+    unittest(test_4_30())
+    unittest(test_4_31())
+    unittest(test_4_32())
+    unittest(test_4_33())
+    unittest(test_4_34())
+    unittest(test_4_35())
+    unittest(test_4_36())
+    unittest(test_4_37())
+    unittest(test_4_38())
+    unittest(test_4_39())
+    unittest(test_4_40())
+    unittest(test_4_41())
+    unittest(test_4_42())
+    unittest(test_4_43())
+    unittest(test_4_44())
+    unittest(test_4_45())
+    unittest(test_4_46())
+    unittest(test_4_47())
+    unittest(test_4_48())
+    unittest(test_4_49())
+    unittest(test_4_50())
+    unittest(test_4_51())
+    unittest(test_4_52())
+    unittest(test_4_53())
+    unittest(test_4_54())
+    unittest(test_4_55())
+    unittest(test_4_56())
+    unittest(test_4_57())
+    unittest(test_4_58())
+    unittest(test_4_59())
+    unittest(test_4_60())
+    unittest(test_4_61())
+    unittest(test_4_62())
+    unittest(test_4_63())
+    unittest(test_4_64())
+    unittest(test_4_65())
+    unittest(test_4_66())
+    unittest(test_4_67())
+    unittest(test_4_68())
+    unittest(test_4_69())
+    unittest(test_4_70())
+    unittest(test_4_71())
+    unittest(test_4_72())
+    unittest(test_4_73())
+    unittest(test_4_74())
+    unittest(test_4_75())
+    unittest(test_4_76())
+    unittest(test_4_77())
+    unittest(test_4_78())
+    unittest(test_4_79())
+    unittest(test_4_80())
+    unittest(test_4_81())
+    unittest(test_4_82())
+    unittest(test_4_83())
+    unittest(test_4_84())
+    unittest(test_4_85())
+    unittest(test_4_86())
+    unittest(test_4_87())
+    unittest(test_4_88())
+    unittest(test_4_89())
+    unittest(test_4_90())
+    unittest(test_4_91())
 
 
     # print message

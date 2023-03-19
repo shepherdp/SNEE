@@ -205,8 +205,7 @@ class SocialNetwork:
         '''
         Initializes a NetworkX graph instance of the appropriate type as the base class.
 
-        :param dir: whether or not the graph is directed
-        :param mult: whether or not the graph allows multiedges
+        :param kwargs: A series of named arguments
         :return: None
         '''
 
@@ -229,6 +228,7 @@ class SocialNetwork:
 
     def _check_property(self, name, val):
         '''
+        Checks whether a given named value falls within the given parameters defined at the top of this file.
 
         :param name: the name of the property to check
         :param val: the value provided for that property
@@ -238,9 +238,10 @@ class SocialNetwork:
 
     def _has_property(self, name):
         '''
+        Checks whether the NetworkX graph has a property by a certain name
 
-        :param name:
-        :return:
+        :param name: the name of the property
+        :return: True if the property exists, False otherwise
         '''
         return name in self.instance.graph
 
@@ -277,23 +278,39 @@ class SocialNetwork:
         kwargs = self._validate_probability_distribution('certainty', **kwargs)
         kwargs = self._validate_probability_distribution('confidence', **kwargs)
 
+        # Iterate through default values for properties
         for key in PROPDEFAULTS:
 
+            # If kwargs is missing a property, fill it in
             if key not in kwargs:
                 kwargs[key] = deepcopy(PROPDEFAULTS[key])
+
+            # Otherwise, check that the property value is admissible, and if not throw an error
             elif not self._check_property(key, kwargs[key]):
                 val = kwargs[key]
                 msg = f'Invalid value for property [{key}]: {val} (type: {type(val)})'
                 msg += f'\nValue must be in: {PROPSELECT[key]}'
                 raise InvalidPropertyError(msg)
 
+        # If any distribution is set to empty, remove the other properties corresponging to it to avoid clutter
+        for tag in ['weight', 'resistance', 'certainty', 'confidence']:
+            if kwargs[f'{tag}_dist'] == '-':
+                if f'{tag}_const' in kwargs: del kwargs[f'{tag}_const']
+                if f'{tag}_min' in kwargs: del kwargs[f'{tag}_min']
+                if f'{tag}_max' in kwargs: del kwargs[f'{tag}_max']
+                if f'{tag}_mean' in kwargs: del kwargs[f'{tag}_mean']
+                if f'{tag}_stdev' in kwargs: del kwargs[f'{tag}_stdev']
+
         return kwargs
 
     def _validate_custom_range_distribution(self, tag, **kwargs):
         '''
+        Ensures that kwargs dictionary is outfitted with proper parameters to initialize a distribution of values
+        over some range that is not 0 to 1.
 
-        :param tag:
-        :return:
+        :param tag: a string representing the characteristic to validate parameters for
+        :param kwargs: a dictionary of named properties
+        :return: modified version of kwargs
         '''
         # Take care of specific special cases -- e.g. if a tag_min and tag_max
         # are provided, but not a tag_mean, then tag_mean will be set to their
@@ -376,8 +393,10 @@ class SocialNetwork:
 
     def _validate_probability_distribution(self, tag, **kwargs):
         '''
+        Ensures that kwargs dictionary is outfitted with proper parameters to initialize a probability distribution.
 
-        :param tag:
+        :param tag: a string representing the characteristic to validate parameters for
+        :param kwargs: a disctionary of named properties
         :return:
         '''
         # Take care of specific special cases -- e.g. if a tag_min and tag_max
@@ -483,10 +502,12 @@ class SocialNetwork:
 
     def _generate_edge_weight(self, u, v, label=None):
         '''
+        Generate a single edge weight according to the graph's designated weight distribution.
 
-        :param u:
-        :param v:
-        :return:
+        :param u: endpoint of the weighted edge
+        :param v: endpoint of the weighted edge
+        :param label: an optional edge label
+        :return: None
         '''
         d = self.prop('weight_dist')
         if d == 'constant':
@@ -500,6 +521,7 @@ class SocialNetwork:
         '''
         Generate edge weights based on the distribution and parameters specified by the user.
 
+        :param label: an optional edge label
         :return: None
         '''
         e = self.edges()
@@ -508,8 +530,11 @@ class SocialNetwork:
 
     def _init_constant_edge_weight(self, u, v, label=None):
         '''
-        Assign constant weights to edge (u, v).
+        Assign constant weight to edge (u, v).
 
+        :param u: endpoint of the weighted edge
+        :param v: endpoint of the weighted edge
+        :param label: an optional edge label
         :return: None
         '''
         if self.prop('multiedge'):
@@ -521,8 +546,11 @@ class SocialNetwork:
 
     def _init_uniform_edge_weight(self, u, v, label=None):
         '''
-        Assign uniform random weights to each edge.
+        Assign uniform random weight to edge (u, v).
 
+        :param u: endpoint of the weighted edge
+        :param v: endpoint of the weighted edge
+        :param label: an optional edge label
         :return: None
         '''
         lo, hi = self.props('weight_min', 'weight_max')
@@ -535,15 +563,17 @@ class SocialNetwork:
 
     def _init_normal_edge_weight(self, u, v, label=None):
         '''
-        Assigns normally distributed edge weights to all edges.
+        Assigns normally distributed weight to edge (u, v).
 
+        :param u: endpoint of the weighted edge
+        :param v: endpoint of the weighted edge
+        :param label: an optional edge label
         :return: None
         '''
 
         # Get max, min, mean, and stdev values
         lo, hi = self.props('weight_min', 'weight_max')
         mu, sigma = self.props('weight_mean', 'weight_stdev')
-
 
         # Generate random numbers
         weight = np.random.normal(mu, sigma, 1)[0]
@@ -563,15 +593,26 @@ class SocialNetwork:
 
     def _update_normalized_edge_weights(self, u):
         '''
+        Update the 'normalized_weights' property of node u to reflect the fractional influence of each of its
+        neighbors.  Note that in MultiGraphs and MultiDiGraphs, multiple edges from the same neighbor are considered
+        in total for that neighbor.
 
-        :return:
+        :param u: the node to update neighbor weights for
+        :return: None
         '''
+
+        # Exit if graph doesn't require normalized weights
         if not self.prop('normalize'):
             return
+
+        # Exit if weight distribution is blank
         if self.prop('weight_dist') == '-':
             return
+
         d = {}
         nbrs = self.neighbors(u) if not self.prop('directed') else self.predecessors(u)
+
+        # Iterate through neighbors of u and add up their respective total weights
         for nbr in nbrs:
             d[nbr] = 0
             if self.prop('multiedge'):
@@ -579,8 +620,12 @@ class SocialNetwork:
                     d[nbr] += self[nbr][u][label]['weight']
             else:
                 d[nbr] += self[nbr][u]['weight']
+
+        # Return if no neighbors
         if not d:
             return
+
+        # Assign each neighbor its total weight / the total incoming weight to u
         total = sum(d.values())
         for nbr in d:
             d[nbr] /= total
@@ -588,8 +633,10 @@ class SocialNetwork:
 
     def _init_diffusion_space(self):
         '''
+        Initialize a matrix to represent the diffusion values of nodes in the network.
+        Can be any number of dimensions, governed by the 'num_dimensions' property.
 
-        :return:
+        :return: None
         '''
         n = self.number_of_nodes()
         k = self.prop('num_dimensions')
@@ -623,7 +670,7 @@ class SocialNetwork:
         '''
 
         n = self.number_of_nodes()
-        diffspace = self.prop('diffusion_space')
+        k = self.prop('num_dimensions')
 
         # Set 'masks' attribute to a new dictionary with blank dictionaries for each node.
         self.prop(masks={i: {} for i in range(n)})
@@ -631,11 +678,11 @@ class SocialNetwork:
         # Each node knows its own diffusion values if selfloops are enforced.
         for i in range(n):
             if self.prop('selfloops'):
-                self.instance.graph['masks'][i][i] = [d for d in diffspace[i]]
+                self.instance.graph['masks'][i][i] = [1 for d in range(k)]
 
     def _init_agent_types(self):
         """
-        Distribute agent types among the nodes.
+        Distribute agent types among the nodes, governed by the properties 'agent_types' and 'type_dist'.
 
         :return: None
         """
@@ -688,8 +735,9 @@ class SocialNetwork:
 
     def load_agent_types(self):
         """
+        Load each agent type into the relevant list for use when updating diffusion space.
 
-        :return:
+        :return: None
         """
         models = self.prop('agent_models')
         if not models:
@@ -711,6 +759,32 @@ class SocialNetwork:
             elif model['conformity'] == 'rebelling':
                 REBELLING.append(modelname)
 
+    def get_view(self, u, v):
+        '''
+        Return a vector representing what u knows of v's diffusion values.
+
+        :param u: the observing node
+        :param v: the observed node
+        :return: a vector of diffusion values
+        '''
+        k = self.prop('num_dimensions')
+
+        # Return all zeroes if u and v are not friends
+        if u not in self[v]:
+            return [0 for i in range(k)]
+
+        v_vals = self.prop('diffusion_space')[v]
+        return [v_vals[i] if self.prop('masks')[u][v][i] == 1 else 0 for i in range(k)]
+
+    def get_neighborhood_view(self, u):
+        '''
+        Return a list of individual neighbor views for node u.
+
+        :param u: the node observing its neighborhood
+        :return: a list containing u's view of each of its neighbors
+        '''
+        return {v: self.get_view(u, v) for v in self[u]}
+
     def reset_view(self, u, v, visibility='hidden'):
         '''
         Reset the view agent v has of agent u.
@@ -720,11 +794,12 @@ class SocialNetwork:
         :param visibility: What parameter to use to determine new visible diffusion values
         :return: None
         '''
-        if v not in self[u]:
+
+        # Do not reset view if u == v or if u and v are not connected
+        if u == v or v not in self[u]:
             return
 
         K = self.prop('num_dimensions')
-        diffspace = self.prop('diffusion_space')
         sym = all(self.props('directed', 'symmetric')) or (not self.prop('directed'))
 
         self.instance.graph['masks'][v][u] = [0 for i in range(K)]
@@ -732,12 +807,12 @@ class SocialNetwork:
 
         if visibility == 'random':
             for k in range(K):
-                self.instance.graph['masks'][v][u][k] = rnd.choice([0., diffspace[u][k]])
-                if sym: self.instance.graph['masks'][u][v][k] = rnd.choice([0., diffspace[v][k]])
+                self.instance.graph['masks'][v][u][k] = rnd.choice([0, 1])
+                if sym: self.instance.graph['masks'][u][v][k] = rnd.choice([0, 1])
         elif visibility == 'visible':
             for k in range(K):
-                self.instance.graph['masks'][v][u][k] = diffspace[u][k]
-                if sym: self.instance.graph['masks'][u][v][k] = diffspace[v][k]
+                self.instance.graph['masks'][v][u][k] = 1
+                if sym: self.instance.graph['masks'][u][v][k] = 1
 
     def hide(self, u, v, k):
         '''
@@ -748,7 +823,9 @@ class SocialNetwork:
         :param k: The dimension to be hidden
         :return: None
         '''
-        self.instance.graph['masks'][v][u][k] = 0.
+        if v not in self[u] or u == v:
+            return
+        self.instance.graph['masks'][v][u][k] = 0
 
     def hide_all(self, u, v):
         '''
@@ -758,44 +835,78 @@ class SocialNetwork:
         :param v: The node being hidden from
         :return: None
         '''
+        if v not in self[u] or u == v:
+            return
         for i in range(self.prop('num_dimensions')):
-            self.instance.graph['masks'][v][u][i] = 0.
+            self.instance.graph['masks'][v][u][i] = 0
 
     def reveal(self, u, v, k):
         '''
+        Node u reveals value in dimension k from node v.
 
-        :param u:
-        :param v:
-        :param k:
-        :return:
+        :param u: The revealing node
+        :param v: The node being revealed to
+        :param k: The dimension to be revealed
+        :return: None
         '''
-        self.instance.graph['masks'][v][u][k] = self.prop('diffusion_space')[u][k]
+        if v not in self[u]:
+            return
+        self.instance.graph['masks'][v][u][k] = 1
 
     def reveal_all(self, u, v):
         '''
+        Node u reveals all diffusion values to node v.
 
-        :param u:
-        :param v:
-        :return:
+        :param u: The revealing node
+        :param v: The node being revealed to
+        :return: None
         '''
-        pass
+        if v not in self[u]:
+            return
+        for i in range(self.prop('num_dimensions')):
+            self.instance.graph['masks'][v][u][i] = 1
 
     def broadcast(self, u, k):
         '''
+        Node u reveals its value in dimension k to all neighbors
 
-        :param u:
-        :param k:
-        :return:
+        :param u: the broadcasting node
+        :param k: the dimension to be broadcast
+        :return: None
         '''
-        pass
+        for v in self[u]:
+            self.reveal(u, v, k)
 
     def broadcast_all(self, u):
         '''
+        Node u reveals its values in all dimensions to all neighbors
 
-        :param u:
-        :return:
+        :param u: the broadcasting node
+        :return: None
         '''
-        pass
+        for v in self[u]:
+            self.reveal_all(u, v)
+
+    def nocast(self, u, k):
+        '''
+        Node u hides its value in dimension k from all neighbors
+
+        :param u: the nocasting node
+        :param k: the dimension to be nocast
+        :return: None
+        '''
+        for v in self[u]:
+            self.hide(u, v, k)
+
+    def nocast_all(self, u):
+        '''
+        Node u hides its values in all dimensions from all neighbors
+
+        :param u: the nocasting node
+        :return: None
+        '''
+        for v in self[u]:
+            self.hide_all(u, v)
 
     def property(self, arg=None, **kwargs):
         '''
