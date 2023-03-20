@@ -34,7 +34,7 @@ default = {'homophily': 'homophilic',
            'num_influencers': 'max'
            }
 
-AGENT_PROPS = {'default': default}
+MODELS = {'default': default}
 
 # A dictionary to hold verifier objects for each named property.
 # These objects throw an error if the user provided an invalid value.
@@ -99,8 +99,8 @@ PROPDEFAULTS = {'n': 0,
                 'dimensions': 'binary',
                 'initialize_at_extremes': False,
                 'visibility': 'visible',
-                'type_dist': {'default': 1.},
-                'agent_types': AGENT_PROPS,
+                'type_dist': {'A': .5, 'B': .5},
+                'agent_models': MODELS,
                 'normalized_weights': {},
                 'normalize': False
                 }
@@ -157,6 +157,8 @@ class SocialNetwork:
             self.prop(normalized_weights={i: {} for i in self.nodes()})
         for i in range(self.number_of_nodes()):
             self._update_normalized_edge_weights(i)
+        self._load_agent_models()
+        self._init_agent_types()
 
     def __getattr__(self, name):
         '''
@@ -633,20 +635,22 @@ class SocialNetwork:
 
     def _init_diffusion_space(self):
         '''
-        Initialize a matrix to represent the diffusion values of nodes in the network.
+        Initialize a dictionary to represent the diffusion values of nodes in the network.
         Can be any number of dimensions, governed by the 'num_dimensions' property.
 
         :return: None
         '''
-        n = self.number_of_nodes()
+        mynodes = list(self.nodes())
+        n = len(mynodes)
         k = self.prop('num_dimensions')
+        d = {}
         matrix = []
 
         # If diffusion space is binary OR it is continuous but needs to be initialized at maximal and minimal values,
         # set all entries to -1 or 1.
         if self.prop('dimensions') == 'binary' or self.prop('initialize_at_extremes'):
             for i in range(k):
-                vec = [1. for j in range(n//2)] + [-1. for j in range(n//2)]
+                vec = [1. for j in range(n // 2)] + [-1. for j in range(n // 2)]
                 while len(vec) < n:
                     vec.append(random.choice([-1., 1.]))
                 random.shuffle(vec)
@@ -657,8 +661,15 @@ class SocialNetwork:
             matrix = [[2 * rnd.random() - 1 for j in range(n)]
                       for i in range(k)]
 
+        matrix = np.array(matrix).T
+
+        row = 0
+        for node in mynodes:
+            d[node] = list(matrix[row])
+            row += 1
+
         # Set the attribute 'diffusion_space' to a numpy representation of the matrix.
-        self.prop(diffusion_space=np.array(matrix).T)
+        self.prop(diffusion_space=d)
 
     def _init_masks(self):
         '''
@@ -669,26 +680,28 @@ class SocialNetwork:
         :return: None
         '''
 
-        n = self.number_of_nodes()
+        mynodes = list(self.nodes())
+        n = len(mynodes)
         k = self.prop('num_dimensions')
 
         # Set 'masks' attribute to a new dictionary with blank dictionaries for each node.
         self.prop(masks={i: {} for i in range(n)})
 
         # Each node knows its own diffusion values if selfloops are enforced.
-        for i in range(n):
+        for node in mynodes:
             if self.prop('selfloops'):
-                self.instance.graph['masks'][i][i] = [1 for d in range(k)]
+                self.instance.graph['masks'][node][node] = [1 for d in range(k)]
 
     def _init_agent_types(self):
         """
-        Distribute agent types among the nodes, governed by the properties 'agent_types' and 'type_dist'.
+        Distribute agent types among the nodes, governed by the property 'type_dist'.
 
         :return: None
         """
-
-        n = self.number_of_nodes()
-        self.prop(types=[])
+        mynodes = list(self.nodes())
+        n = len(mynodes)
+        self.prop(types={})
+        types = []
         self.prop(indexes_by_type={})
 
         # If no distribution is given, make all nodes default types.
@@ -718,22 +731,23 @@ class SocialNetwork:
 
             # Append nums[t] copies of this type's string representation to the vector.
             for i in range(nums[t]):
-                self.instance.graph['types'].append(t)
+                types.append(t)
 
         # Make sure that the rounding above didn't leave us short an element.
-        while len(self.prop('types')) < n:
+        while len(types) < n:
             nums[max_t] += 1
-            self.instance.graph['types'].append(max_t)
+            types.append(max_t)
 
         # Randomly shuffle agent types.
-        rnd.shuffle(self.instance.graph['types'])
-        mytypes = self.prop('types')
+        rnd.shuffle(types)
 
         # Update indexes_by_type property for quick retrieval of all agents of a particular type.
-        for i in range(len(mytypes)):
-            self.instance.graph['indexes_by_type'][mytypes[i]].append(i)
+        for node, idx in zip(mynodes, range(n)):
+            t = types[idx]
+            self.instance.graph['types'][node] = t
+            self.instance.graph['indexes_by_type'][t].append(node)
 
-    def load_agent_types(self):
+    def _load_agent_models(self):
         """
         Load each agent type into the relevant list for use when updating diffusion space.
 
@@ -745,7 +759,7 @@ class SocialNetwork:
 
         for modelname in models:
             model = models[modelname]
-            AGENT_PROPS[modelname] = model
+            MODELS[modelname] = model
 
             if model['homophily'] == 'homophilic':
                 HOMOPHILIC.append(modelname)
@@ -999,15 +1013,14 @@ class SocialNetwork:
         '''
         return self.prop('graphtype') == 'multidigraph'
 
-    def get_local_average(self, u, weighted=False, v=True):
+    def get_local_average(self, u):
         """
 
-        :param u:
-        :param weighted:
+        :param u: The node whose neighborhood should be averaged
         :return:
         """
 
-        if weighted:
+        if not self.prop('weight_dist') == '-':
             result = self.prop('normalized_weights').T[u].dot(self.prop('masks')[u]).round(decimals=2)
             return result
         else:
@@ -1016,110 +1029,152 @@ class SocialNetwork:
 
     def connect(self, u, v, label=None, p=1., **kwargs):
         '''
+        Add an optionally labeled edge from u to v with probability p.
 
-        :param u:
-        :param v:
-        :param label:
-        :param p:
-        :param kwargs:
+        :param u: The source node of the edge
+        :param v: The destination node of the edge
+        :param label: The label to apply to the edge -- optional
+        :param p: The probability to create the edge
+        :param kwargs: Any other named parameters to be passed through to NetworkX
         :return: None
         '''
+
+        # Do not add the edge if it is a selfloop and those are not allowed
         if (u == v) and (not self.prop('selfloops')):
             return
+
+        # Add edge with probability p
         if coin_flip(p):
+
+            # If the object is a MultiGraph or MultiDiGraph, connect a labeled multiedge
             if self.prop('multiedge'):
                 self.connect_multi(u, v, label, **kwargs)
+
+            # Otherwise, create an unlabeled edge
             else:
+
+                # Create the edge and add a weight based on the desired weighting scheme
                 self.add_edge(u, v, **kwargs)
                 self._generate_edge_weight(u, v)
+
+                # Add symmetric edge and generate weight if necessary
                 if all(self.props('symmetric', 'directed')):
                     self.add_edge(v, u, **kwargs)
                     self._generate_edge_weight(v, u)
+
+            # Reset the relevant masks and normalized weights if necessary.
+            # These features are 1-per-node, so they can be handled here whether the graph allows multiedges or not.
             self.reset_view(u, v, visibility=self.prop('visibility'))
             self._update_normalized_edge_weights(u)
             self._update_normalized_edge_weights(v)
 
     def connect_multi(self, u, v, label=None, **kwargs):
         '''
+        Handles creating a new edge in MultiGraph or MultiDigraph
 
-        :param u:
-        :param v:
-        :param label:
-        :param kwargs:
+        :param u: The source node
+        :param v: The destination node
+        :param label: The label to apply to the edge -- optional
+        :param kwargs: Any other named parameters to be passed through to NetworkX
         :return: None
         '''
+
+        # If no label is provided, get a new one
         if label is None:
             label = self.new_edge_key(u, v)
+
+        # Add the edge and generate a weight
         self.add_edge(u, v, label, **kwargs)
         self._generate_edge_weight(u, v, label)
+
+        # Add a symmetric edge if necessary
         if all(self.props('symmetric', 'directed')):
             self.add_edge(v, u, label, **kwargs)
             self._generate_edge_weight(v, u, label)
 
     def disconnect(self, u, v, label=None, p=1.):
         '''
+        Remove an optionally labeled edge from u to v with probability p.
 
-        :param u:
-        :param v:
-        :param label:
-        :param p:
-        :return:
+        :param u: The source node of the edge
+        :param v: The destination node of the edge
+        :param label: The label of the edge to be removed -- optional
+        :param p: The probability to delete the edge
+        :return: None
         '''
+
+        # If the edge is a selfloop and selfloops must be maintained, return
         if (u == v) and (self.prop('selfloops')):
             return
+
+        # Remove the edge with probability p
         if coin_flip(p):
+
+            # If the object is a MultiGraph or MultiDiGraph, delete a labeled multiedge
             if self.ismultigraph() or self.ismultidigraph():
                 self.disconnect_multi(u, v, label)
+
+            # Otherwise, simply remove the edge, update masks, and if necessary renormalize edge weights
             else:
                 self.remove_edge(u, v)
                 del self.instance.graph['masks'][v][u]
                 if self.prop('normalize'):
                     del self.instance.graph['normalized_weights'][v][u]
+
+                # Remove symmetric edge if necessary
                 if all(self.props('symmetric', 'directed')):
                     self.remove_edge(v, u)
+
+                # If mask visibility and weights are mutual, then delete the symmetric counterparts
                 if all(self.props('symmetric', 'directed')) or not self.prop('directed'):
                     del self.instance.graph['masks'][u][v]
                     if self.prop('normalize'):
                         del self.instance.graph['normalized_weights'][u][v]
-            self.reset_view(u, v, visibility=self.prop('visibility'))
+
+            # No need to reset view here because we delete the mask from u to v (and possibly from v to u) above,
+            # and no other views are changed by this edge deletion.
+            # However, we do need to renormalize edge weights.
             self._update_normalized_edge_weights(u)
             self._update_normalized_edge_weights(v)
 
     def disconnect_multi(self, u, v, label=None):
         '''
+        Handles deleting an optionally labeled edge in MultiGraph or MultiDigraph.
+        If no label is provided and there are multiple edges from u to v, then all of them will be deleted.
 
-        :param u:
-        :param v:
-        :param label:
-        :return:
+        :param u: The source node
+        :param v: The destination node
+        :param label: The label of the edge to delete -- optional
+        :return: None
         '''
+
+        # If there is a label provided, only remove the edge with that label
         if label is not None:
             self.remove_edge(u, v, label)
-            notconnected = v not in self[u]
-            if notconnected:
-                del self.instance.graph['masks'][v][u]
-                if self.prop('normalize'):
-                    del self.instance.graph['normalized_weights'][v][u]
+
+            # Remove symmetric edge if necessary
             if all(self.props('symmetric', 'directed')):
                 self.remove_edge(v, u, label)
-            if notconnected:
-                if all(self.props('symmetric', 'directed')) or not self.prop('directed'):
-                    del self.instance.graph['masks'][u][v]
-                    if self.prop('normalize'):
-                        del self.instance.graph['normalized_weights'][u][v]
+
+        # If no label was provided, assume that all edges from u to v need to be removed.
         else:
+            # Empty out the edge list from u to v and, if necessary, v to u
             while v in self[u]:
                 self.remove_edge(u, v)
                 if all(self.props('symmetric', 'directed')):
                     self.remove_edge(v, u)
+
+        # If u and v are now not connected, remove masks and normalized weights
+        if v not in self[u]:
             del self.instance.graph['masks'][v][u]
             if self.prop('normalize'):
                 del self.instance.graph['normalized_weights'][v][u]
+
+            # If necessary, also remove symmetric mask and normalized weight
             if all(self.props('symmetric', 'directed')) or not self.prop('directed'):
                 del self.instance.graph['masks'][u][v]
                 if self.prop('normalize'):
                     del self.instance.graph['normalized_weights'][u][v]
-
     def update_voter(self, u):
         '''
         Updates diffusion values of node u based on q = self.prop('num_voters').

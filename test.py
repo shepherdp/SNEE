@@ -1244,7 +1244,7 @@ def test_4_23():
     s.connect(0, 1)
     v = s.get_view(1, 0)
     d = s.prop('diffusion_space')[0]
-    return all(v == d)
+    return v == d
 
 def test_4_24():
     # Make sure reveal works properly in Graph.
