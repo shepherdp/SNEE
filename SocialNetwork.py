@@ -46,7 +46,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'symmetric': TF,                # directed edges must be symmetric?
               'selfloops': TF,                # self-loops included?
               'saturation': PROB,             # average percent of the network each node is connected to
-              'topology': ['', 'complete', 'cycle', 'random',
+              'topology': ['-', 'complete', 'cycle', 'random',
                            'scale free', 'small world', 'star'],
 
               # used to govern edge weight distributions
@@ -78,7 +78,7 @@ PROPDEFAULTS = {'n': 0,
                 'multiedge': False,
                 'symmetric': True,
                 'selfloops': True,
-                'topology': '',
+                'topology': '-',
                 'saturation': .1,
                 'weight_dist': '-',
                 'weight_const': 1.,
@@ -296,12 +296,14 @@ class SocialNetwork:
 
         # If any distribution is set to empty, remove the other properties corresponging to it to avoid clutter
         for tag in ['weight', 'resistance', 'certainty', 'confidence']:
-            if kwargs[f'{tag}_dist'] == '-':
+            if kwargs[f'{tag}_dist'] in ['-', 'uniform', 'normal']:
                 if f'{tag}_const' in kwargs: del kwargs[f'{tag}_const']
+            if kwargs[f'{tag}_dist'] in ['-', 'constant']:
                 if f'{tag}_min' in kwargs: del kwargs[f'{tag}_min']
                 if f'{tag}_max' in kwargs: del kwargs[f'{tag}_max']
-                if f'{tag}_mean' in kwargs: del kwargs[f'{tag}_mean']
-                if f'{tag}_stdev' in kwargs: del kwargs[f'{tag}_stdev']
+            if kwargs[f'{tag}_dist'] in ['-', 'constant', 'uniform']:
+                if f'{tag}_min' in kwargs: del kwargs[f'{tag}_mean']
+                if f'{tag}_max' in kwargs: del kwargs[f'{tag}_stdev']
 
         return kwargs
 
@@ -459,7 +461,7 @@ class SocialNetwork:
         edges = list()
 
         # Blank graph.
-        if topology == '':
+        if topology == '-':
             pass
 
         # Erdos-Renyi random graph
@@ -1175,6 +1177,7 @@ class SocialNetwork:
                 del self.instance.graph['masks'][u][v]
                 if self.prop('normalize'):
                     del self.instance.graph['normalized_weights'][u][v]
+
     def update_voter(self, u):
         '''
         Updates diffusion values of node u based on q = self.prop('num_voters').
