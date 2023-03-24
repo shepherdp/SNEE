@@ -63,6 +63,7 @@ DCT = type(dict())
 # Constants that define possible values for categorical variables
 TF = [True, False]
 DISTS = ['-', 'constant', 'uniform', 'normal']
+METRICS = ['-', 'betweenness', 'closeness', 'clustering', 'degree']
 MAXINT_32 = 2147483647
 MININT_32 = -2147483647
 
