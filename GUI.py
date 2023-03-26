@@ -1,99 +1,131 @@
 # GUI Class
 
-from helpers import DISTS, METRICS
+from helpers import ToolTip, TOOLTIP, DISTS, METRICS, dummy
+import networkx
 from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
 
-import functools
 import tkinter as tk
 import tkinter.ttk as ttk
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.figure import Figure
+import numpy as np
 
-class GUI(tk.Toplevel):
+ERRCOLOR = 'pink'
+WRNCOLOR = 'moccasin'
+OKCOLOR = 'palegreen'
+NRMCOLOR = 'white'
 
-    def __init__(self, root=None):
+class GUI:
 
-        if root is None:
+    def __init__(self, parent=None):
+
+        self.parent = parent
+        self.child = None
+        if self.parent is None:
             self.root = tk.Tk()
             self.root.title("Social Network Evolution Engine")
-            self.poppedoff = False
+
+            self.vars = {'n': tk.IntVar(),
+                         'directed': tk.BooleanVar(),
+                         'symmetric': tk.BooleanVar(),
+                         'multiedge': tk.BooleanVar(),
+                         'selfloops': tk.BooleanVar(),
+                         'normalize': tk.BooleanVar(),
+                         'staticpos': tk.BooleanVar(),
+                         'topology': tk.StringVar(),
+                         'layout': tk.StringVar(),
+                         'weight_dist': tk.StringVar(),
+                         'speed': tk.IntVar(),
+                         'numplots': tk.IntVar(),
+                         'dimensions': tk.StringVar(),
+                         'num_dimensions': tk.IntVar(),
+                         'visibility': tk.StringVar(),
+                         'p_connect': tk.DoubleVar(),
+                         'p_disconnect': tk.DoubleVar(),
+                         'p_update': tk.DoubleVar(),
+                         'saturation': tk.DoubleVar(),
+                         'weight_min': tk.DoubleVar(),
+                         'weight_max': tk.DoubleVar(),
+                         'weight_mean': tk.DoubleVar(),
+                         'weight_stdev': tk.DoubleVar(),
+                         'weight_const': tk.DoubleVar(),
+                         'connect_threshold': tk.DoubleVar(),
+                         'disconnect_threshold': tk.DoubleVar(),
+                         'sizenodesby': tk.StringVar(),
+                         'colornodesby': tk.StringVar(),
+                         'alphaedgesby': tk.StringVar(),
+                         'labelnodesby': tk.StringVar(),
+                         'labeledgesby': tk.StringVar(),
+                         'coloredgesby': tk.StringVar(),
+                         'plot1data': tk.StringVar(),
+                         'plot2data': tk.StringVar(),
+                         'plot3data': tk.StringVar(),
+                         'plot4data': tk.StringVar(),
+                         'plot5data': tk.StringVar(),
+                         'plot6data': tk.StringVar(),
+                         'addnode': tk.StringVar(),
+                         'delnode': tk.StringVar(),
+                         'addedgefrom': tk.StringVar(),
+                         'addedgeto': tk.StringVar(),
+                         'deledgefrom': tk.StringVar(),
+                         'deledgeto': tk.StringVar(),
+                         'addedgelabel': tk.StringVar(),
+                         'deledgelabel': tk.StringVar(),
+                         'size': tk.DoubleVar(),
+                         'edgealpha': tk.DoubleVar(),
+                         'nodealpha': tk.DoubleVar(),
+                         'gravity': tk.DoubleVar(),
+                         'confidence': tk.DoubleVar(),
+                         'resistance': tk.DoubleVar(),
+                         'update_method': tk.StringVar(),
+                         'max_reward': tk.DoubleVar(),
+                         'distance': tk.StringVar()}
+
+            for key in self.vars:
+                if key in PROPDEFAULTS:
+                    self.vars[key].set(PROPDEFAULTS[key])
+
+            self.graph = None
+            self.data = {f'ax{i}': None for i in range(7)}
 
         else:
-            super().__init__(self, root)
-            self.root = root
-            self.poppedoff = True
+            self.root = tk.Toplevel(self.parent.root)
+            self.root.title('Command Center')
+            self.vars = self.parent.vars
+            self.graph = self.parent.graph
+            self.data = self.parent.data
 
+        self.tooltips = {}
         self.frames = {}
         self.inputs = {}
         self.labels = {}
         self.buttons = {}
         self.notebook = {}
-        self.plot = {}
-        self.vars = {'n': tk.IntVar(),
-                     'directed': tk.BooleanVar(),
-                     'symmetric': tk.BooleanVar(),
-                     'multiedge': tk.BooleanVar(),
-                     'selfloops': tk.BooleanVar(),
-                     'normalize': tk.BooleanVar(),
-                     'staticpos': tk.BooleanVar(),
-                     'topology': tk.StringVar(),
-                     'layout': tk.StringVar(),
-                     'weight_dist': tk.StringVar(),
-                     'speed': tk.IntVar(),
-                     'numplots': tk.IntVar(),
-                     'dimensions': tk.StringVar(),
-                     'num_dimensions': tk.IntVar(),
-                     'visibility': tk.StringVar(),
-                     'p_connect': tk.DoubleVar(),
-                     'p_disconnect': tk.DoubleVar(),
-                     'p_update': tk.DoubleVar(),
-                     'saturation': tk.DoubleVar(),
-                     'weight_min': tk.DoubleVar(),
-                     'weight_max': tk.DoubleVar(),
-                     'weight_mean': tk.DoubleVar(),
-                     'weight_stdev': tk.DoubleVar(),
-                     'weight_const': tk.DoubleVar(),
-                     'connect_threshold': tk.DoubleVar(),
-                     'disconnect_threshold': tk.DoubleVar(),
-                     'sizenodesby': tk.StringVar(),
-                     'colornodesby': tk.StringVar(),
-                     'alphaedgesby': tk.StringVar(),
-                     'labelnodesby': tk.StringVar(),
-                     'labeledgesby': tk.StringVar(),
-                     'coloredgesby': tk.StringVar(),
-                     'plot1data': tk.StringVar(),
-                     'plot2data': tk.StringVar(),
-                     'plot3data': tk.StringVar(),
-                     'plot4data': tk.StringVar(),
-                     'addnode': tk.StringVar(),
-                     'delnode': tk.StringVar(),
-                     'addedgefrom': tk.StringVar(),
-                     'addedgeto': tk.StringVar(),
-                     'deledgefrom': tk.StringVar(),
-                     'deledgeto': tk.StringVar(),
-                     'addedgelabel': tk.StringVar(),
-                     'deledgelabel': tk.StringVar(),
-                     'size': tk.DoubleVar(),
-                     'edgealpha': tk.DoubleVar(),
-                     'nodealpha': tk.DoubleVar(),
-                     'gravity': tk.DoubleVar(),
-                     'confidence': tk.DoubleVar(),
-                     'resistance': tk.DoubleVar(),
-                     'update_method': tk.StringVar(),
-                     'max_reward': tk.DoubleVar(),
-                     'distance': tk.StringVar()}
+        self.plot = {'axes':{},
+                     'nodesize': 100}
+        self.problems = set()
 
         self._init_panel_frames()
-        self._init_plot()
         self._init_notebook()
+        self._init_status()
 
-        self.labels['status'] = tk.Label(self.frames['status'], text="All good right now.")
-        self.labels['status'].grid(sticky='ew')
+        if not self.parent:
+            self._init_plot(None)
+        else:
+            self.plot = self.parent.plot
 
-        self.root.mainloop()
+        self.invoke_callbacks()
+
+        if self.parent is not None:
+            self.root.protocol("WM_DELETE_WINDOW", dummy)
+        else:
+            self.root.mainloop()
 
     def _init_panel_frames(self):
-        self.frames['window'] = tk.Frame(self.root, padx=5, pady=5)
+        if self.root:
+            self.frames['window'] = tk.Frame(self.root, padx=5, pady=5)
+        else:
+            self.frames['window'] = tk.Frame(self, padx=5, pady=5)
         self.frames['window'].grid(padx=5, pady=5, sticky='news')
 
         self.frames['notebook'] = tk.LabelFrame(self.frames['window'], text='Control Panel', padx=5, pady=5)
@@ -102,36 +134,83 @@ class GUI(tk.Toplevel):
         self.frames['status'] = tk.LabelFrame(self.frames['window'], text='Status', padx=5, pady=5)
         self.frames['status'].grid(row=1, column=0, padx=5, pady=5, sticky='sew')
 
-        self.frames['plot'] = tk.LabelFrame(self.frames['window'], text='Plot', padx=5, pady=5)
-        self.frames['plot'].grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky='news')
+        if self.parent is None:
+            self.frames['plot'] = tk.LabelFrame(self.frames['window'], text='Plot', padx=5, pady=5)
+            self.frames['plot'].grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky='news')
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
 
-        self.frames['window'].columnconfigure(1, weight=1)
-        self.frames['window'].rowconfigure(0, weight=1)
+        if self.parent is None:
+            self.frames['window'].columnconfigure(1, weight=1)
+            self.frames['window'].rowconfigure(0, weight=1)
+        else:
+            self.frames['window'].columnconfigure(0, weight=1)
+            self.frames['window'].rowconfigure(0, weight=1)
+            self.frames['window'].rowconfigure(1, weight=1)
+            self.frames['notebook'].columnconfigure(0, weight=1)
+            self.frames['notebook'].rowconfigure(0, weight=1)
 
-    def _init_plot(self):
-        self.plot['fig'] = Figure(figsize=(7, 5), dpi=100)
-        # self.plot['ax'] = self.plot['fig'].add_subplot()
-        self.plot['canvas'] = FigureCanvasTkAgg(self.plot['fig'], master=self.frames['plot'])
-        self.plot['canvas'].draw()
-        self.plot['toolbar'] = NavigationToolbar2Tk(self.plot['canvas'], self.frames['plot'])
-        self.plot['toolbar'].update()
-        self.plot['canvas'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+    def _init_status(self):
+        if self.parent:
+            self.buttons['popoff'] = tk.Button(self.frames['status'], text='Pop On', command=self.popoff)
+            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        else:
+            self.buttons['popoff'] = tk.Button(self.frames['status'], text='Pop Off', command=self.popoff)
+            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
-        # X = [(2, 3, (1, 3)), (2, 3, 4), (2, 3, 5), (2, 3, 6)]
-        X = [(4, 3, (1, 9)), (4, 3, 10), (4, 3, 11), (4, 3, 12)]
-        for nrows, ncols, plot_number in X:
-            sub = self.plot['fig'].add_subplot(nrows, ncols, plot_number)
-            sub.set_xticks([])
-            sub.set_yticks([])
+        self.labels['status'] = tk.Label(self.frames['status'], text="All good right now.")
+        self.labels['status'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+    def _init_plot(self, event):
+        nsubplots = self.vars['numplots'].get() - 1
+        if 'fig' not in self.plot:
+            self.plot['fig'] = Figure(figsize=(7, 5), dpi=100)
+            self.plot['canvas'] = FigureCanvasTkAgg(self.plot['fig'], master=self.frames['plot'])
+            self.plot['canvas'].draw()
+            self.plot['toolbar'] = NavigationToolbar2Tk(self.plot['canvas'], self.frames['plot'])
+            self.plot['toolbar'].update()
+            self.plot['canvas'].get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        else:
+            self.plot['fig'].clf()
+
+        ncols = max(1, nsubplots)
+        nrows = 3 if nsubplots == 0 else 4
+
+        netplotnums = (1, 3 * ncols)
+
+        axes = ['ax0']
+        self.plot['axes']['ax0'] = self.plot['fig'].add_subplot(nrows, ncols, netplotnums)
+
+        num = (3 * ncols) + 1
+        if nrows == 4:
+            for i in range(ncols):
+                self.plot['axes'][f'ax{i+1}'] = self.plot['fig'].add_subplot(nrows, ncols, num)
+                axes.append(f'ax{i+1}')
+                num += 1
+
+        keys = list(self.plot['axes'].keys())
+        for ax in keys:
+            if ax not in axes:
+                del self.plot['axes'][ax]
+
+        for ax in self.plot['axes']:
+            self.plot['axes'][ax].set_xticks([])
+            self.plot['axes'][ax].set_yticks([])
 
         self.plot['fig'].subplots_adjust(bottom=0.025, left=0.025, top=0.975, right=0.975, hspace=0.1, wspace=0.1)
+        self.plot['canvas'].draw()
+
+        self.set_dataplot_entries()
 
     def _init_notebook(self):
 
-        style = ttk.Style(self.root)
+        if self.root:
+            style = ttk.Style(self.root)
+        else:
+            style = ttk.Style(self)
+
         style.configure('lefttab.TNotebook', tabposition='wn', tabmargins=[2, 5, 2, 0])
         style.configure("TNotebook.Tab", padding=[3, 3], font=('Courier', '8'))
 
@@ -139,12 +218,14 @@ class GUI(tk.Toplevel):
 
         self.notebook['parameters'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['animation'] = ttk.Frame(self.notebook['notebook'])
+        self.notebook['plots'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['evolution'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['edit'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['command'] = ttk.Frame(self.notebook['notebook'])
 
         self.notebook['notebook'].add(self.notebook['parameters'], text='PRM')
         self.notebook['notebook'].add(self.notebook['animation'], text='ANI')
+        self.notebook['notebook'].add(self.notebook['plots'], text='PLT')
         self.notebook['notebook'].add(self.notebook['evolution'], text='EVO')
         self.notebook['notebook'].add(self.notebook['edit'], text='EDT')
         self.notebook['notebook'].add(self.notebook['command'], text='CMD')
@@ -153,6 +234,7 @@ class GUI(tk.Toplevel):
 
         self._populate_parameters_tab()
         self._populate_animation_tab()
+        self._populate_plots_tab()
         self._populate_evolution_tab()
         self._populate_edit_tab()
 
@@ -162,19 +244,24 @@ class GUI(tk.Toplevel):
 
         self._place_input_label('n', 'graph_structure', 'Nodes: ')
         self._place_input_entry('n', 'graph_structure', col=1)
-        self.vars['n'].trace('w', self.n_callback)
+        self.set_trace('n', self.n_callback)
+        self.set_tooltip('n')
 
         self._place_input_checkbutton('symmetric', 'graph_structure', text='Symmetric', row=1, columnspan=2)
+        self.set_tooltip('symmetric')
         self._place_input_checkbutton('directed', 'graph_structure', text='Directed', row=2, columnspan=2,
                                       command=self.directed_callback)
+        self.set_tooltip('directed')
         self._place_input_checkbutton('selfloops', 'graph_structure', text='Self loops', row=1, col=2, columnspan=2)
+        self.set_tooltip('selfloops')
         self._place_input_checkbutton('multiedge', 'graph_structure', text='Multiedges', row=2, col=2, columnspan=2)
+        self.set_tooltip('multiedge')
 
         self._place_labelframe('topology', self.notebook['parameters'], 'Topology')
 
         self._place_input_label('topology', 'topology', 'Topology: ')
-        self._place_input_optionmenu('topology', 'topology', '-', PROPSELECT['topology'], col=1, columnspan=3,
-                                     sticky='ew')
+        self._place_input_optionmenu('topology', 'topology', self.vars['topology'].get(), PROPSELECT['topology'],
+                                     col=1, columnspan=3, sticky='ew', command=self.topology_popup)
 
         self._place_input_label('saturation', 'topology', 'Saturation: ', row=1)
         self._place_input_entry('saturation', 'topology', row=1, col=1)
@@ -182,12 +269,15 @@ class GUI(tk.Toplevel):
         self._place_labelframe('edge_weights', self.notebook['parameters'], 'Weights')
 
         self._place_input_label('weight_dist', 'edge_weights', 'Weights: ')
-        self._place_input_optionmenu('weight_dist', 'edge_weights', '-', DISTS, col=1, columnspan=3, sticky='ew')
+        self._place_input_optionmenu('weight_dist', 'edge_weights', self.vars['weight_dist'].get(), DISTS, col=1,
+                                     columnspan=3, sticky='ew', command=self.weight_dist_callback)
 
         self._place_input_label('weight_min', 'edge_weights', 'Minimum: ', row=1)
         self._place_input_entry('weight_min', 'edge_weights', row=1, col=1)
-        self.vars['weight_min'].trace('w', self.weight_minmax_callback)
-        self.vars['weight_max'].trace('w', self.weight_minmax_callback)
+        self.set_trace('weight_min', self.weight_minmaxmean_callback)
+        self.set_trace('weight_max', self.weight_minmaxmean_callback)
+        self.set_trace('weight_mean', self.weight_minmaxmean_callback)
+        self.set_trace('weight_stdev', self.weight_stdev_callback)
 
         self._place_input_label('weight_max', 'edge_weights', 'Maximum: ', row=1, col=2)
         self._place_input_entry('weight_max', 'edge_weights', row=1, col=3)
@@ -205,12 +295,10 @@ class GUI(tk.Toplevel):
                                       sticky='e')
 
         self._place_labelframe('construct', self.notebook['parameters'], '')
-        self.buttons['construct'] = tk.Button(self.frames['construct'], text='Construct')
+        self.buttons['construct'] = tk.Button(self.frames['construct'], text='Construct', command=self.construct)
         self.buttons['construct'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.buttons['clear'] = tk.Button(self.frames['construct'], text='Clear')
+        self.buttons['clear'] = tk.Button(self.frames['construct'], text='Clear', command=self.clear)
         self.buttons['clear'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.buttons['popoff'] = tk.Button(self.frames['construct'], text='Pop Off')
-        self.buttons['popoff'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _populate_animation_tab(self):
         self._place_labelframe('animation', self.notebook['animation'], 'Animation')
@@ -219,63 +307,63 @@ class GUI(tk.Toplevel):
         self._place_input_scale('speed', 'animation', 0, 5, 1, length=150, row=1, col=1, columnspan=3)
 
         self._place_input_label('layout', 'animation', 'Layout: ', row=0, col=0)
-        self._place_input_optionmenu('layout', 'animation', 'spring', ['spring', 'circle','spiral','random','shell'],
-                                     row=0, col=1, columnspan=2, sticky='ew')
+        if self.vars['layout'].get() == '':
+            self.vars['layout'].set('spring')
+        self._place_input_optionmenu('layout', 'animation', self.vars['layout'].get(),
+                                     ['spring', 'circle','spiral','random','shell'], row=0, col=1, columnspan=2, sticky='ew')
 
         self._place_labelframe('nodes', self.notebook['animation'], 'Nodes')
 
         self._place_input_checkbutton('staticpos', 'nodes', row=0, col=0, sticky='w', text='Fixed pos.')
         self._place_input_label('size', 'nodes', 'Size: ', row=0, col=1)
-        self._place_input_scale('size', 'nodes', 0, 1, .1, length=70, row=0, col=2)
-        self._place_input_label('nodealpha', 'nodes', 'Alpha: ', row=1, col=1)
-        self._place_input_scale('nodealpha', 'nodes', 0, 1, .1, length=70, row=1, col=2)
+        self._place_input_scale('size', 'nodes', 100, 700, 100, length=80, row=0, col=2, columnspan=2, sticky='ew',
+                                command=self.resize_nodes)
+        self._place_input_label('nodealpha', 'nodes', 'Alpha: ', row=1, col=0)
+        if self.parent is not None:
+            self.vars['nodealpha'].set(self.parent.vars['nodealpha'].get())
+        else:
+            self.vars['nodealpha'].set(1.)
+        self._place_input_scale('nodealpha', 'nodes', 0, 1, .01, length=70, row=1, col=1, columnspan=2, sticky='ew',
+                                command=self.realpha_nodes)
+        self._place_input_entry('nodealpha', 'nodes', row=1, col=3, sticky='e')
 
         self._place_input_label('sizenodesby', 'nodes', 'Size nodes: ', row=2, col=0)
-        self._place_input_optionmenu('sizenodesby', 'nodes', '-', METRICS, row=2, col=1, columnspan=3, sticky='ew')
+        if self.vars['sizenodesby'].get() == '':
+            self.vars['sizenodesby'].set('-')
+        self._place_input_optionmenu('sizenodesby', 'nodes', self.vars['sizenodesby'].get(), METRICS, row=2, col=1,
+                                     columnspan=3, sticky='ew')
         self._place_input_label('colornodesby', 'nodes', 'Color nodes: ', row=3, col=0)
-        self._place_input_optionmenu('colornodesby', 'nodes', '-', METRICS + ['type'], row=3, col=1, columnspan=3,
-                                     sticky='ew')
+        if self.vars['colornodesby'].get() == '':
+            self.vars['colornodesby'].set('-')
+        self._place_input_optionmenu('colornodesby', 'nodes', self.vars['colornodesby'].get(),
+                                     METRICS + ['type', 'diff. space'], row=3, col=1, columnspan=3, sticky='ew')
         self._place_input_label('labelnodesby', 'nodes', 'Label nodes: ', row=4, col=0)
-        self._place_input_optionmenu('labelnodesby', 'nodes', '-', METRICS + ['name', 'diff. space', 'type'], row=4,
-                                     col=1, columnspan=3, sticky='ew')
+        if self.vars['labelnodesby'].get() == '':
+            self.vars['labelnodesby'].set('-')
+        self._place_input_optionmenu('labelnodesby', 'nodes', self.vars['labelnodesby'].get(),
+                                     METRICS + ['name', 'diff. space', 'type'], row=4, col=1, columnspan=3, sticky='ew')
 
         self._place_labelframe('edges', self.notebook['animation'], 'Edges')
 
         self._place_input_label('edgealpha', 'edges', 'Alpha: ', row=0, col=0)
-        self._place_input_scale('edgealpha', 'edges', 0, 1, .01, length=80, row=0, col=1, columnspan=2)
+        self._place_input_scale('edgealpha', 'edges', 0, 1, .01, length=70, row=0, col=1, columnspan=2)
         self._place_input_entry('edgealpha', 'edges', row=0, col=3)
 
         self._place_input_label('alphaedgesby', 'edges', 'Darken edges: ', row=1, col=0)
-        self._place_input_optionmenu('alphaedgesby', 'edges', '-', ['-', 'betweenness', 'weight'], row=1, col=1,
+        if self.vars['alphaedgesby'].get() == '':
+            self.vars['alphaedgesby'].set('-')
+        self._place_input_optionmenu('alphaedgesby', 'edges', self.vars['alphaedgesby'].get(), ['-', 'betweenness', 'weight'], row=1, col=1,
                                      columnspan=3, sticky='ew')
         self._place_input_label('coloredgesby', 'edges', 'Color edges: ', row=2, col=0)
-        self._place_input_optionmenu('coloredgesby', 'edges', '-', ['-', 'betweenness', 'weight', 'label'], row=2,
+        if self.vars['coloredgesby'].get() == '':
+            self.vars['coloredgesby'].set('-')
+        self._place_input_optionmenu('coloredgesby', 'edges', self.vars['coloredgesby'].get(), ['-', 'betweenness', 'weight', 'label'], row=2,
                                      col=1, columnspan=3, sticky='ew')
         self._place_input_label('labeledgesby', 'edges', 'Label edges: ', row=4, col=0)
-        self._place_input_optionmenu('labeledgesby', 'edges', '-', ['-', 'betweenness', 'weight', 'label'], row=4,
+        if self.vars['labeledgesby'].get() == '':
+            self.vars['labeledgesby'].set('-')
+        self._place_input_optionmenu('labeledgesby', 'edges', self.vars['labeledgesby'].get(), ['-', 'betweenness', 'weight', 'label'], row=4,
                                      col=1, columnspan=3, sticky='ew')
-
-        self._place_labelframe('dataplots', self.notebook['animation'], 'Data Plots')
-
-        self._place_input_label('numplots', 'dataplots', '# Plots: ', row=0, col=0)
-        self._place_input_scale('numplots', 'dataplots', 0, 4, 1, length=80, row=0, col=1, columnspan=3)
-        self._place_input_label('plot1data', 'dataplots', 'Plot 1 Data: ', row=1, col=0)
-        self._place_input_optionmenu('plot1data', 'dataplots', '-', METRICS, row=1, col=1, columnspan=3, sticky='ew')
-        self._place_input_label('plot2data', 'dataplots', 'Plot 2 Data: ', row=2, col=0)
-        self._place_input_optionmenu('plot2data', 'dataplots', '-', METRICS, row=2, col=1, columnspan=3, sticky='ew')
-        self._place_input_label('plot3data', 'dataplots', 'Plot 3 Data: ', row=3, col=0)
-        self._place_input_optionmenu('plot3data', 'dataplots', '-', METRICS, row=3, col=1, columnspan=3, sticky='ew')
-        self._place_input_label('plot4data', 'dataplots', 'Plot 4 Data: ', row=4, col=0)
-        self._place_input_optionmenu('plot4data', 'dataplots', '-', METRICS, row=4, col=1, columnspan=3, sticky='ew')
-
-        self.labels['plot1data'].grid_forget()
-        self.inputs['plot1data'].grid_forget()
-        self.labels['plot2data'].grid_forget()
-        self.inputs['plot2data'].grid_forget()
-        self.labels['plot3data'].grid_forget()
-        self.inputs['plot3data'].grid_forget()
-        self.labels['plot4data'].grid_forget()
-        self.inputs['plot4data'].grid_forget()
 
         self._place_labelframe('play', self.notebook['animation'], '')
 
@@ -286,6 +374,22 @@ class GUI(tk.Toplevel):
         self.buttons['pause'] = tk.Button(self.frames['play'], text='Pause')
         self.buttons['pause'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+    def _populate_plots_tab(self):
+        self._place_labelframe('dataplots', self.notebook['plots'], 'Data Plots')
+
+        self._place_input_label('numplots', 'dataplots', '# Plots: ', row=0, col=0)
+        self._place_input_scale('numplots', 'dataplots', 1, 7, 1, length=100, row=0, col=1, columnspan=2,
+                                command=self._init_plot)
+        for i in range(1, 7):
+            self._place_input_label(f'plot{i}data', 'dataplots', f'Plot {i}: ', row=i, col=0)
+            if self.vars[f'plot{i}data'].get() == '':
+                self.vars[f'plot{i}data'].set('-')
+            self._place_input_optionmenu(f'plot{i}data', 'dataplots', self.vars[f'plot{i}data'].get(), METRICS, row=i, col=1, columnspan=3,
+                                         sticky='ew')
+
+            self.labels[f'plot{i}data'].grid_forget()
+            self.inputs[f'plot{i}data'].grid_forget()
+
     def _populate_evolution_tab(self):
         self._place_labelframe('evolution', self.notebook['evolution'], 'Evolution Parameters')
 
@@ -293,11 +397,11 @@ class GUI(tk.Toplevel):
         self._place_input_entry('num_dimensions', 'evolution', col=1)
 
         self._place_input_label('dimensions', 'evolution', 'Domain: ', row=1)
-        self._place_input_optionmenu('dimensions', 'evolution', 'binary', ['binary', 'continuous'],
+        self._place_input_optionmenu('dimensions', 'evolution', self.vars['dimensions'].get(), ['binary', 'continuous'],
                                      row=1, col=1, columnspan=3)
 
         self._place_input_label('visibility', 'evolution', 'Visibility: ', row=2)
-        self._place_input_optionmenu('visibility', 'evolution', 'visible', ['visible', 'hidden', 'random'],
+        self._place_input_optionmenu('visibility', 'evolution', self.vars['visibility'].get(), ['visible', 'hidden', 'random'],
                                      row=2, col=1, columnspan=3)
 
         self._place_labelframe('dynamics', self.notebook['evolution'], 'Dynamics')
@@ -334,7 +438,9 @@ class GUI(tk.Toplevel):
         self._place_input_entry('resistance', 'diffusion', row=3, col=3)
 
         self._place_input_label('update_method', 'diffusion', 'Updates: ', row=4)
-        self._place_input_optionmenu('update_method', 'diffusion', '-', ['-', 'voter', 'majority', 'average',
+        if self.vars['update_method'].get() == '':
+            self.vars['update_method'].set('-')
+        self._place_input_optionmenu('update_method', 'diffusion', self.vars['update_method'].get(), ['-', 'voter', 'majority', 'average',
                                                                          'transmission'],
                                      row=4, col=1, columnspan=3, sticky='ew')
 
@@ -344,7 +450,9 @@ class GUI(tk.Toplevel):
         self._place_input_scale('max_reward', 'reward', 0, 1, .5, row=0, col=1, columnspan=2, length=70)
         self._place_input_entry('max_reward', 'reward', row=0, col=3)
         self._place_input_label('distance', 'reward', 'Distance: ', row=1)
-        self._place_input_optionmenu('distance', 'reward', 'hamming', ['hamming', 'euclidean', 'cosine'],
+        if self.vars['distance'].get() == '':
+            self.vars['distance'].set('hamming')
+        self._place_input_optionmenu('distance', 'reward', self.vars['distance'].get(), ['hamming', 'euclidean', 'cosine'],
                                      row=1, col=1, columnspan=3, sticky='ew')
 
     def _populate_edit_tab(self):
@@ -385,9 +493,9 @@ class GUI(tk.Toplevel):
         self.labels[tag] = tk.Label(self.frames[framename], text=text, padx=2)
         self.labels[tag].grid(row=row, column=col, padx=2, sticky=sticky)
 
-    def _place_input_entry(self, tag, framename, width=5, row=0, col=0, columnspan=1):
+    def _place_input_entry(self, tag, framename, width=5, row=0, col=0, columnspan=1, sticky='w'):
         self.inputs[tag] = tk.Entry(self.frames[framename], textvariable=self.vars[tag], width=width)
-        self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=2, sticky=tk.W)
+        self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=2, sticky=sticky)
 
     def _place_input_checkbutton(self, tag, framename, row=0, col=0, sticky='w', text=None, columnspan=1,
                                  command=None):
@@ -395,47 +503,208 @@ class GUI(tk.Toplevel):
                                           command=command)
         self.inputs[tag].grid(row=row, column=col, padx=2, sticky=sticky, columnspan=columnspan)
 
-    def _place_input_optionmenu(self, tag, framename, firstoption, vals, row=0, col=0, columnspan=1, sticky='w'):
-        self.inputs[tag] = ttk.OptionMenu(self.frames[framename], self.vars[tag], firstoption, *vals)
+    def _place_input_optionmenu(self, tag, framename, firstoption, vals, row=0, col=0, columnspan=1, sticky='w',
+                                command=None):
+        self.inputs[tag] = ttk.OptionMenu(self.frames[framename], self.vars[tag], firstoption, *vals, command=command)
         self.inputs[tag].grid(row=row, column=col, padx=2, columnspan=columnspan, sticky=sticky)
 
     def _place_input_scale(self, tag, framename, lo, hi, res, length=100, showvalue=False, row=0, col=0,
-                           columnspan=1):
+                           columnspan=1, sticky='ew', command=None):
         self.inputs[tag] = tk.Scale(self.frames[framename], length=length, variable=self.vars[tag], label=None,
-                     resolution=res, orient='horizontal', from_=lo, to=hi, showvalue=showvalue)
-        self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=5, sticky='ew')
+                                    resolution=res, orient='horizontal', from_=lo, to=hi, showvalue=showvalue,
+                                    command=command)
+        self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=5, sticky=sticky)
 
     def directed_callback(self):
         if not self.vars['directed'].get():
             self.vars['symmetric'].set(True)
-            self.inputs['symmetric'].configure(state='disabled')
+            self.disable_vars('symmetric')
         else:
-            self.inputs['symmetric'].configure(state='normal')
+            self.enable_vars('symmetric')
 
     def n_callback(self, *args):
         try:
             n = self.vars['n'].get()
             if n < 0:
-                self.inputs['n'].configure(bg='IndianRed1')
-            elif self.inputs['n']['bg'] == 'IndianRed1':
-                self.reset_bgcolor(['n'])
+                self.inputs['n'].configure(bg=ERRCOLOR)
+                self.tooltips['n'].update(TOOLTIP['n']['error'], ERRCOLOR)
+            else:
+                if self.inputs['n'].cget('bg') == ERRCOLOR:
+                    self.reset_bgcolor(['n'])
+                    self.tooltips['n'].update(TOOLTIP['n']['normal'], NRMCOLOR)
         except:
-            self.inputs['n'].configure(bg='IndianRed1')
+            self.inputs['n'].configure(bg=ERRCOLOR)
+            self.tooltips['n'].update(TOOLTIP['n']['error'], ERRCOLOR)
 
-    def weight_minmax_callback(self, *args):
-        wmin = self.vars['weight_min'].get()
-        wmax = self.vars['weight_max'].get()
-        if wmin >= wmax:
-            self.inputs['weight_min'].configure(bg='IndianRed1')
-            self.inputs['weight_max'].configure(bg='IndianRed1')
+    def weight_minmaxmean_callback(self, *args):
+
+        if self.inputs['weight_mean'].cget('state') == 'disabled':
+            # Only compare min and max
+            try:
+                wmin = self.vars['weight_min'].get()
+                wmax = self.vars['weight_max'].get()
+            except:
+                wmin, wmax = 1, 0
+            if wmin >= wmax:
+                self.problems.add('weight_min')
+                self.problems.add('weight_max')
+                self.inputs['weight_min'].configure(bg=ERRCOLOR)
+                self.inputs['weight_max'].configure(bg=ERRCOLOR)
+            else:
+                for tag in ['weight_min', 'weight_max']:
+                    if tag in self.problems:
+                        self.problems.remove(tag)
+                self.reset_bgcolor(['weight_min', 'weight_max'])
+
         else:
-            self.reset_bgcolor(['weight_min', 'weight_max'])
+            try:
+                wmin = self.vars['weight_min'].get()
+                wmax = self.vars['weight_max'].get()
+                wmean = self.vars['weight_mean'].get()
+            except:
+                wmin, wmax, wmean = 0, 1, 2
+
+            if not (wmin < wmean < wmax):
+                self.problems.add('weight_mean')
+                self.problems.add('weight_min')
+                self.problems.add('weight_max')
+                self.inputs['weight_min'].configure(bg=ERRCOLOR)
+                self.inputs['weight_max'].configure(bg=ERRCOLOR)
+                self.inputs['weight_mean'].configure(bg=ERRCOLOR)
+            else:
+                for tag in ['weight_min', 'weight_max', 'weight_mean']:
+                    if tag in self.problems:
+                        self.problems.remove(tag)
+                self.reset_bgcolor(['weight_min', 'weight_max', 'weight_mean'])
+
+    def weight_stdev_callback(self, *args):
+        try:
+            wmin = self.vars['weight_min'].get()
+            wmax = self.vars['weight_max'].get()
+            wmean = self.vars['weight_mean'].get()
+            stdev = self.vars['weight_stdev'].get()
+        except:
+            return
+
+        dist1 = abs(wmean - wmin) / 3
+        dist2 = abs(wmax - wmean) / 3
+
+        if stdev > dist1 or stdev > dist2:
+            self.problems.add('weight_stdev')
+            self.inputs['weight_stdev'].configure(bg=WRNCOLOR)
+        else:
+            if 'weight_stdev' in self.problems:
+                self.problems.remove('weight_stdev')
+                self.reset_bgcolor(['weight_stdev'])
+
+    def weight_dist_callback(self, *args):
+        d = self.vars['weight_dist'].get()
+        if d == '-':
+            self.disable_vars('weight_min', 'weight_max', 'weight_mean',
+                              'weight_stdev', 'weight_const', 'normalize')
+        elif d == 'constant':
+            self.disable_vars('weight_min', 'weight_max', 'weight_mean', 'weight_stdev')
+            self.enable_vars('weight_const', 'normalize')
+        elif d == 'uniform':
+            self.disable_vars('weight_mean', 'weight_stdev', 'weight_const')
+            self.enable_vars('weight_min', 'weight_max', 'normalize')
+            self.weight_minmaxmean_callback()
+        elif d == 'normal':
+            self.disable_vars('weight_const')
+            self.enable_vars('weight_min', 'weight_max', 'weight_mean', 'weight_stdev', 'normalize')
+            self.weight_minmaxmean_callback()
 
     def reset_bgcolor(self, tags, firstcall=True):
         for tag in tags:
             if firstcall:
-                self.inputs[tag].configure(bg='LightBlue1')
+                self.inputs[tag].configure(bg=OKCOLOR)
             else:
-                self.inputs[tag].configure(bg='white')
+                if self.inputs[tag].cget('bg') != ERRCOLOR:
+                    self.inputs[tag].configure(bg=NRMCOLOR)
         if firstcall:
-            self.root.after(1000, lambda: self.reset_bgcolor(tags, firstcall=False))
+            if self.root:
+                self.root.after(500, lambda: self.reset_bgcolor(tags, firstcall=False))
+            else:
+                self.root.after(500, lambda: self.reset_bgcolor(tags, firstcall=False))
+
+    def popoff(self):
+        if self.parent == None and self.child == None:
+            self.frames['notebook'].grid_forget()
+            self.frames['status'].grid_forget()
+            self.child = GUI(self)
+        elif self.parent is not None:
+            self.parent.frames['notebook'].grid(row=0, sticky='news', padx=5, pady=5)
+            self.parent.frames['status'].grid(row=1, sticky='sew', padx=5, pady=5)
+            self.parent.invoke_callbacks()
+            self.root.withdraw()
+        else:
+            self.child.root.deiconify()
+            self.child.invoke_callbacks()
+            self.frames['notebook'].grid_forget()
+            self.frames['status'].grid_forget()
+
+    def topology_popup(self, event):
+        top = self.vars['topology'].get()
+        print(top)
+
+    def disable_vars(self, *vars):
+        for var in vars:
+            self.inputs[var].configure(state='disabled')
+
+    def enable_vars(self, *vars):
+        for var in vars:
+            self.inputs[var].configure(state='normal')
+
+    def invoke_callbacks(self):
+        self.weight_minmaxmean_callback()
+        self.weight_stdev_callback()
+        self.weight_dist_callback()
+        self.n_callback()
+        self.directed_callback()
+        self.set_dataplot_entries()
+
+    def set_trace(self, tag, callback):
+        self.vars[tag].trace('w', callback)
+
+    def set_dataplot_entries(self):
+        if 'fig' not in self.plot:
+            return
+        nsubplots = self.vars['numplots'].get() - 1
+        for i in range(1, 7):
+            if i <= nsubplots:
+                self.labels[f'plot{i}data'].grid(row=i, column=0)
+                self.inputs[f'plot{i}data'].grid(row=i, column=1, columnspan=3, sticky='ew')
+            else:
+                self.labels[f'plot{i}data'].grid_forget()
+                self.inputs[f'plot{i}data'].grid_forget()
+
+    def set_tooltip(self, tag):
+        self.tooltips[tag] = ToolTip(self.inputs[tag], TOOLTIP[tag]['normal'])
+
+    def construct(self):
+        for i in self.inputs:
+            if self.inputs[i].cget('state') == 'normal' and self.inputs[i].cget('bg') == ERRCOLOR:
+                print('No good')
+                return
+        n = self.vars['n'].get()
+        self.graph = SocialNetwork(n=n)
+        pos = networkx.spring_layout(self.graph)
+        self.data['ax0'] = self.plot['axes']['ax0'].scatter(*np.array(list(pos.values())).T)
+        self.plot['canvas'].draw_idle()
+
+    def clear(self):
+        del self.graph
+        self.graph = None
+        self._init_plot(None)
+
+    def resize_nodes(self, event):
+        if self.graph is None:
+            return
+        self.data['ax0'].set_sizes(np.full(7, self.vars['size'].get()))
+        self.plot['canvas'].draw_idle()
+
+    def realpha_nodes(self, event):
+        if self.graph is None:
+            return
+        self.data['ax0'].set_alpha(np.full(7, self.vars['nodealpha'].get()))
+        self.plot['canvas'].draw_idle()
