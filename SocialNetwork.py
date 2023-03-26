@@ -31,7 +31,8 @@ default = {'homophily': 'homophilic',
            'conformity': 'conforming',
            'bound': False,
            'update_method': False,
-           'num_influencers': 'max'
+           'num_influencers': 'max',
+           'sim_max': .25
            }
 
 MODELS = {'default': default}
@@ -66,6 +67,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'confidence_dist': DISTS,
               'confidence_mean': PROB,
               'confidence_stdev': PROB,
+              'sim_max': PROB,
               'dimensions': ['continuous', 'binary'],
               'num_dimensions': POSNUM,
               'initialize_at_extremes': TF,
@@ -99,10 +101,11 @@ PROPDEFAULTS = {'n': 0,
                 'dimensions': 'binary',
                 'initialize_at_extremes': False,
                 'visibility': 'visible',
-                'type_dist': {'A': .5, 'B': .5},
+                'type_dist': {'default': 1.},
                 'agent_models': MODELS,
                 'normalized_weights': {},
-                'normalize': False
+                'normalize': False,
+                'sim_max': 1.
                 }
 
 class SocialNetwork:
@@ -1224,6 +1227,40 @@ class SocialNetwork:
         :return:
         '''
         pass
+
+    def reward(self, u, v):
+        '''
+        Calculate the reward node u gets from node v
+
+        :param u: The receiving node
+        :param v: The neighbor of the receiving node
+        :return: reward value in the range [0, 1]
+        '''
+
+        # Get distance between u and v, taking masks into account
+        d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
+        print(self.prop('diffusion_space')[u])
+        print(self.get_view(u, v))
+
+        # Get the % similarity that maximizes u's reward
+        maxval = 1 - self.prop('agent_models')[self.prop('types')[u]]['sim_max']
+        print(d, maxval)
+
+        # If totally homophilic, return 1 - distance
+        if maxval == 1.:
+            return 1 - d
+
+        # If totally heterophilic, the distance is the same as the reward
+        elif maxval == 0.:
+            return d
+
+        # Otherwise, return linear reward based on sim_max and the boundaries [0, 1]
+        elif d >= maxval:
+            p = (d - maxval) / (1 - maxval)
+            return 1 - p
+        elif d < maxval:
+            p = (maxval - d) / maxval
+            return 1 - p
 
     # Method aliases
     prop = property
