@@ -1,6 +1,7 @@
 import random as rnd
 
 from scipy.spatial import distance
+import tkinter as tk
 
 # Error message classes
 class InvalidPropertyError(Exception):
@@ -52,6 +53,13 @@ def dist(vec1, vec2):
     distvec2 = [vec2[i] for i in range(len(vec2)) if vec2[i] != 0.]
     return distance.hamming(distvec1, distvec2)
 
+def dummy():
+    '''
+    A dummy function to aid in disabling exit functionality on GUI toplevel window.
+    :return:
+    '''
+    pass
+
 # Helpful constants to check data types
 BOOL = type(bool())
 STR = type(str())
@@ -80,3 +88,77 @@ REBELLING = []
 HOMOPHILIC = ['default']
 HETEROPHILIC = []
 MESOPHILIC = []
+
+class ToolTip(object):
+    """
+    This creates a tool tip for any given widget, so when you hover your mouse it displays any and all relevant information regarding it.
+    """
+    def __init__(self, widget, text='widget info'):
+        """The initiator contructs the tooltip, binding widgets and creating variables to be used and defined later."""
+        self.waittime = 500     #miliseconds
+        self.wraplength = 300   #pixels
+        self.widget = widget
+        self.text = text
+        self.bg = 'white'
+        self.widget.bind("<Enter>", self.enter)
+        self.widget.bind("<Leave>", self.leave)
+        self.widget.bind("<ButtonPress>", self.leave)
+        self.id = None
+        self.tw = None
+        self.label = None
+
+    def enter(self, event=None):
+        self.schedule()
+
+    def leave(self, event=None):
+        self.unschedule()
+        self.hide()
+
+    def schedule(self):
+        """Calls upon unschedule, and checks if id is already set. In which it will execute the cancel parameter of self.widget.
+        It sets self.id to the self.widget property filling in parameters with other self properties, even calling for the showyip ptoprtyu."""
+        self.unschedule()
+        self.id = self.widget.after(self.waittime, self.show)
+
+    def unschedule(self):
+        id = self.id
+        self.id = None
+        if id:
+            self.widget.after_cancel(id)
+
+    def show(self, event=None):
+        """Shows the conxtext tool tip on the screen, using a top level invisile window to hold the label serving as a parent to the tool tip."""
+        x, y, cx, cy = self.widget.bbox("insert")
+        x += self.widget.winfo_rootx() + 25
+        y += self.widget.winfo_rooty() + 20
+        self.tw = tk.Toplevel(self.widget)
+        self.tw.wm_overrideredirect(True)
+        self.tw.wm_geometry("+%d+%d" % (x, y))
+        self.label = tk.Label(self.tw, text=self.text, justify='left',
+                              background=self.bg, relief='solid', borderwidth=1,
+                              wraplength=self.wraplength)
+        self.label.pack(ipadx=1)
+
+    def hide(self):
+        """Sets the topwindow to variable to the property which is set to none. If its active, it will be destroyed."""
+        tw = self.tw
+        self.tw = None
+        if tw:
+            tw.destroy()
+
+    def update(self, text, bg):
+        self.text = text
+        self.bg = bg
+
+TOOLTIP = {'n': {'normal': '''param \'n\': (int) number of nodes in the graph.
+This parameter must be a positive integer.
+Floating-point inputs will be rounded down.''',
+                 'error': '''This value must be a positive integer.'''},
+           'symmetric': {'normal': '''param \'symmetric\': (bool) whether edge symmetry is enforced.
+Only applicable to directed graphs; undirected graphs are symmetric by default.
+Symmetric directed edges may have different weights from each other.'''},
+           'directed': {'normal': '''param \'directed\': (bool) whether graph edges are directed.'''},
+           'multiedge': {'normal': '''param \'multiedge\': (bool) whether multiple edges are allowed with the same source and destination nodes.'''},
+           'selfloops': {'normal': '''param \'selfloops\': (bool) whether self-edges are enforced.
+If true, self-edges cannot be deleted.  If false, they cannot be added.'''}
+           }
