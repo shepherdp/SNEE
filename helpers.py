@@ -2,6 +2,10 @@ import random as rnd
 
 from scipy.spatial import distance
 import tkinter as tk
+import numpy as np
+import time
+import matplotlib.pyplot as plt
+from random import shuffle
 
 # Error message classes
 class InvalidPropertyError(Exception):
@@ -82,7 +86,7 @@ SYMNUM = Bound(-MAXINT_32, MAXINT_32)
 SYMBIN = Bound(-1., 1.)
 
 # Lists to hold agents in different categories.
-CONFORMING = ['default']
+CONFORMING = []#'default']
 REBELLING = []
 
 HOMOPHILIC = ['default']
