@@ -25,14 +25,14 @@ from helpers import *
 #          Options: True, False
 #   update_method: determines how an agent updates its opinion
 #   num_influencers: determines how many neighbors are considered when updating
-#                    Options: integer or 'max'
-#                             if integer > number of neighbors, defaults to max
+#                    Options: integer
+#                             if integer > number of neighbors
 default = {'homophily': 'homophilic',
            'conformity': 'conforming',
            'bound': False,
            'update_method': False,
            'num_influencers': 'max',
-           'sim_max': .25
+           'sim_max': 1.
            }
 
 MODELS = {'default': default}
@@ -59,20 +59,46 @@ PROPSELECT = {# used in initial setup of graph structure
               'weight_min': SYMNUM,
               'weight_max': SYMNUM,
               'resistance_dist': DISTS,
+              'resistance_min': PROB,
+              'resistance_max': PROB,
               'resistance_mean': PROB,
               'resistance_stdev': PROB,
+              'resistance_const': PROB,
               'certainty_dist': DISTS,
+              'certainty_min': PROB,
+              'certainty_max': PROB,
               'certainty_mean': PROB,
               'certainty_stdev': PROB,
+              'certainty_const': PROB,
               'confidence_dist': DISTS,
+              'confidence_min': PROB,
+              'confidence_max': PROB,
               'confidence_mean': PROB,
               'confidence_stdev': PROB,
+              'confidence_const': PROB,
               'sim_max': PROB,
-              'dimensions': ['continuous', 'binary'],
+              'dimensions': ['continuous', 'binary', 'categorical'],
+              'category_transitions': {},
               'num_dimensions': POSNUM,
               'initialize_at_extremes': TF,
               'visibility': ['hidden', 'random', 'visible'],
-              'normalize': TF
+              'normalize': TF,
+              'distance': ['hamming', 'euclidean', 'cosine'],
+              'layout': ['spring', 'circle', 'spiral', 'random', 'shell'],
+              'num_influencers': POSNUM,
+              'num_node_updates': POSNUM,
+              'update_method': ['average', 'weighted average', 'transmission', 'majority', 'voter', 'qvoter'],
+              'gravity': SYMBIN,
+              'p_update': PROB,
+              'p_connect': PROB,
+              'num_nodes_update': POSNUM,
+              'p_disconnect': PROB,
+              'thresh_connect': PROB,
+              'thresh_disconnect': PROB,
+              'num_nodes_connect': POSNUM,
+              'num_nodes_disconnect': POSNUM,
+              'num_connections': POSNUM,
+              'num_disconnections': POSNUM
               }
 
 PROPDEFAULTS = {'n': 0,
@@ -89,23 +115,44 @@ PROPDEFAULTS = {'n': 0,
                 'weight_min': 0.,
                 'weight_max': 1.,
                 'resistance_dist': '-',
+                'resistance_min': 0.,
+                'resistance_max': 1.,
                 'resistance_mean': .5,
                 'resistance_stdev': .1,
+                'resistance_const': 0.,
                 'certainty_dist': '-',
+                'certainty_min': 0.,
+                'certainty_max': 1.,
                 'certainty_mean': .5,
                 'certainty_stdev': .1,
+                'certainty_const': 1.,
                 'confidence_dist': '-',
+                'confidence_min': 0.,
+                'confidence_max': 1.,
                 'confidence_mean': .5,
                 'confidence_stdev': .1,
+                'confidence_const': 1.,
                 'num_dimensions': 1,
                 'dimensions': 'binary',
-                'initialize_at_extremes': False,
+                'initialize_at_extremes': True,
                 'visibility': 'visible',
                 'type_dist': {'default': 1.},
                 'agent_models': MODELS,
                 'normalized_weights': {},
                 'normalize': False,
-                'sim_max': 1.
+                'sim_max': 1.,
+                'layout': 'spring',
+                'gravity': -1.,
+                'p_update': 1.,
+                'num_nodes_update': MAXINT_32,
+                'p_connect': 0.,
+                'p_disconnect': 0.,
+                'num_nodes_connect': MAXINT_32,
+                'num_nodes_disconnect': MAXINT_32,
+                'num_connections': 0,
+                'num_disconnections': 0,
+                'thresh_connect': 0,
+                'thresh_disconnect': 1,
                 }
 
 class SocialNetwork:
@@ -160,6 +207,9 @@ class SocialNetwork:
             self.prop(normalized_weights={i: {} for i in self.nodes()})
         for i in range(self.number_of_nodes()):
             self._update_normalized_edge_weights(i)
+        self._init_certainty()
+        self._init_confidence()
+        self._init_resistance()
         self._load_agent_models()
         self._init_agent_types()
 
@@ -279,6 +329,8 @@ class SocialNetwork:
         """
 
         kwargs = self._validate_custom_range_distribution('weight', **kwargs)
+        if kwargs['weight_dist'] != '-':
+            kwargs['normalize'] = True
         kwargs = self._validate_probability_distribution('resistance', **kwargs)
         kwargs = self._validate_probability_distribution('certainty', **kwargs)
         kwargs = self._validate_probability_distribution('confidence', **kwargs)
@@ -507,23 +559,6 @@ class SocialNetwork:
             for i in range(self.prop('n')):
                 self.connect(i, i)
 
-    def _generate_edge_weight(self, u, v, label=None):
-        '''
-        Generate a single edge weight according to the graph's designated weight distribution.
-
-        :param u: endpoint of the weighted edge
-        :param v: endpoint of the weighted edge
-        :param label: an optional edge label
-        :return: None
-        '''
-        d = self.prop('weight_dist')
-        if d == 'constant':
-            self._init_constant_edge_weight(u, v, label)
-        elif d == 'uniform':
-            self._init_uniform_edge_weight(u, v, label)
-        elif d == 'normal':
-            self._init_normal_edge_weight(u, v, label)
-
     def _generate_edge_weights(self, label=None):
         '''
         Generate edge weights based on the distribution and parameters specified by the user.
@@ -531,72 +566,87 @@ class SocialNetwork:
         :param label: an optional edge label
         :return: None
         '''
-        e = self.edges()
-        for u, v in e:
-            self._generate_edge_weight(u, v, label)
+        e = list(self.edges())
+        d = self.prop('weight_dist')
+        if d == 'constant':
+            weights = self._generate_constant_values(len(e), 'weight')
+        elif d == 'uniform':
+            weights = self._generate_uniform_values(len(e), 'weight')
+        elif d == 'normal':
+            weights = self._generate_normal_values(len(e), 'weight')
+        for i in range(len(e)):
+            u, v = e[i]
+            weight = weights[i]
+            self._init_edge_weight(u, v, weight, label)
 
-    def _init_constant_edge_weight(self, u, v, label=None):
+    def _generate_edge_weight(self, u, v, label=None):
         '''
-        Assign constant weight to edge (u, v).
+        Generate edge weights based on the distribution and parameters specified by the user.
 
-        :param u: endpoint of the weighted edge
-        :param v: endpoint of the weighted edge
+        :param u: the source node
+        :param v: the destination node
         :param label: an optional edge label
         :return: None
         '''
-        if self.prop('multiedge'):
-            if label is None:
-                label = self.new_edge_key(u, v)
-            self[u][v][label]['weight'] = self.prop('weight_const')
-        else:
-            self[u][v]['weight'] = self.prop('weight_const')
+        d = self.prop('weight_dist')
+        if d == '-':
+            return
+        if d == 'constant':
+            weight = self._generate_constant_values(1, 'weight')[0]
+        elif d == 'uniform':
+            weight = self._generate_uniform_values(1, 'weight')[0]
+        elif d == 'normal':
+            weight = self._generate_normal_values(1, 'weight')[0]
+        self._init_edge_weight(u, v, weight, label)
 
-    def _init_uniform_edge_weight(self, u, v, label=None):
+    def _generate_constant_values(self, numvals, tag):
         '''
-        Assign uniform random weight to edge (u, v).
+
+        :param numvals:
+        :param tag:
+        :return:
+        '''
+        return np.full(numvals, self.prop(f'{tag}_const'))
+
+    def _generate_uniform_values(self, numvals, tag):
+        '''
+
+        :param numvals:
+        :param tag:
+        :return:
+        '''
+        lo, hi = self.props(f'{tag}_min', f'{tag}_max')
+        return np.random.uniform(lo, hi, numvals)
+
+    def _generate_normal_values(self, numvals, tag):
+        ret = []
+        lo, hi = self.props(f'{tag}_min', f'{tag}_max')
+        mu, sigma = self.props(f'{tag}_mean', f'{tag}_stdev')
+
+        # Generate random numbers 50 at a time to fill up the array.
+        while True:
+            for w in np.random.normal(mu, sigma, 50):
+                if len(ret) == numvals:
+                    return ret
+                if lo <= w <= hi:
+                    ret.append(w)
+
+    def _init_edge_weight(self, u, v, weight, label=None):
+        '''
+        Assign weight to edge (u, v).
 
         :param u: endpoint of the weighted edge
         :param v: endpoint of the weighted edge
+        :param weight: weight for edge u, v
         :param label: an optional edge label
         :return: None
         '''
-        lo, hi = self.props('weight_min', 'weight_max')
-        if self.prop('multiedge'):
-            if label is None:
-                label = self.new_edge_key(u, v)
-            self[u][v][label]['weight'] = np.random.uniform(lo, hi)
-        else:
-            self[u][v]['weight'] = np.random.uniform(lo, hi)
-
-    def _init_normal_edge_weight(self, u, v, label=None):
-        '''
-        Assigns normally distributed weight to edge (u, v).
-
-        :param u: endpoint of the weighted edge
-        :param v: endpoint of the weighted edge
-        :param label: an optional edge label
-        :return: None
-        '''
-
-        # Get max, min, mean, and stdev values
-        lo, hi = self.props('weight_min', 'weight_max')
-        mu, sigma = self.props('weight_mean', 'weight_stdev')
-
-        # Generate random numbers
-        weight = np.random.normal(mu, sigma, 1)[0]
-
-        # Lock weights within admissible range
-        # NOTE: if, e.g., stdev is very high relative to the range [lo, hi], then it is possible that a lot of values
-        # will clump up at the extremes of your range.  User beware!
-        if weight < lo: weight = lo
-        if weight > hi: weight = hi
-
         if self.prop('multiedge'):
             if label is None:
                 label = self.new_edge_key(u, v)
             self[u][v][label]['weight'] = weight
         else:
-            self.instance[u][v]['weight'] = weight
+            self[u][v]['weight'] = weight
 
     def _update_normalized_edge_weights(self, u):
         '''
@@ -637,6 +687,49 @@ class SocialNetwork:
         for nbr in d:
             d[nbr] /= total
         self.instance.graph['normalized_weights'][u] = d
+
+    def _init_certainty(self):
+        d = self.prop('certainty_dist')
+        if d == '-':
+            return
+        self.prop(certainty={})
+        if d == 'constant':
+            vals = self._generate_constant_values(self.prop('n'), 'certainty')
+        elif d == 'uniform':
+            vals = self._generate_uniform_values(self.prop('n'), 'certainty')
+        elif d == 'normal':
+            vals = self._generate_normal_values(self.prop('n'), 'certainty')
+        for i, node in enumerate([key for key in self.nodes]):
+            self.instance.graph['certainty'][node] = vals[i]
+
+
+    def _init_confidence(self):
+        d = self.prop('confidence_dist')
+        if d == '-':
+            return
+        self.prop(confidence={})
+        if d == 'constant':
+            vals = self._generate_constant_values(self.prop('n'), 'confidence')
+        elif d == 'uniform':
+            vals = self._generate_uniform_values(self.prop('n'), 'confidence')
+        elif d == 'normal':
+            vals = self._generate_normal_values(self.prop('n'), 'confidence')
+        for i, node in enumerate([key for key in self.nodes]):
+            self.instance.graph['confidence'][node] = vals[i]
+
+    def _init_resistance(self):
+        d = self.prop('resistance_dist')
+        if d == '-':
+            return
+        self.prop(resistance={})
+        if d == 'constant':
+            vals = self._generate_constant_values(self.prop('n'), 'resistance')
+        elif d == 'uniform':
+            vals = self._generate_uniform_values(self.prop('n'), 'resistance')
+        elif d == 'normal':
+            vals = self._generate_normal_values(self.prop('n'), 'resistance')
+        for i, node in enumerate([key for key in self.nodes]):
+            self.instance.graph['resistance'][node] = vals[i]
 
     def _init_diffusion_space(self):
         '''
@@ -956,7 +1049,7 @@ class SocialNetwork:
         if kwargs:
             # Provide a warning if any values are about to be overwritten
             if any([key in self.instance.graph for key in kwargs]):
-                warn(f'One or more existing graph properties will be overwritten.')
+                warn('One or more existing graph properties will be overwritten.')
             # Set new value(s)
             for key in kwargs:
                 self.instance.graph[key] = kwargs[key]
@@ -1018,19 +1111,54 @@ class SocialNetwork:
         '''
         return self.prop('graphtype') == 'multidigraph'
 
-    def get_local_average(self, u):
+    def get_influencers(self, u):
+        '''
+
+        :param u:
+        :return:
+        '''
+        nbrs = self.get_neighborhood_view(u)
+        if u in nbrs:
+            del nbrs[u]
+
+        # If using confidence bound, trim out neighbors who do not produce enough reward
+        if self.prop('confidence_dist') != '-':
+            nbrs = {nbr: self.get_view(u, nbr) for nbr in nbrs if self.reward(u, nbr) >= (1 - self.prop('confidence')[u])
+                    or u == nbr}
+
+        if self.prop('max_influencers') > len(nbrs):
+            num_influencers = len(nbrs)
+        else:
+            num_influencers = min(self.prop('max_influencers'), len(nbrs))
+
+        nbrkeys = [key for key in nbrs if key != u]
+        random.shuffle(nbrkeys)
+        nbrs = {nbr: self.get_view(u, nbr) for nbr in nbrkeys[:num_influencers]}
+        if self.prop('selfloops'):
+            nbrs[u] = self.get_view(u, u)
+
+        return nbrs
+
+    def get_local_average(self, u, weighted=True):
         """
 
         :param u: The node whose neighborhood should be averaged
+        :param weighted:
         :return:
         """
+        nbrs = self.get_influencers(u)
 
-        if not self.prop('weight_dist') == '-':
-            result = self.prop('normalized_weights').T[u].dot(self.prop('masks')[u]).round(decimals=2)
-            return result
+        # Unweighted average
+        if self.prop('weight_dist') == '-' or not weighted:
+            ret = self.simple_average(nbrs)
         else:
-            result = self.prop('normalized_weights').T[u].dot(self.prop('masks')[u]).round(decimals=6)
-            return result
+            weights = self.prop('normalized_weights')[u]
+            w = {i: weights[i] for i in nbrs}
+            total = sum(w.values())
+            for key in w:
+                w[key] /= total
+            ret = self.weighted_average(nbrs, w)
+        return ret
 
     def connect(self, u, v, label=None, p=1., **kwargs):
         '''
@@ -1041,8 +1169,11 @@ class SocialNetwork:
         :param label: The label to apply to the edge -- optional
         :param p: The probability to create the edge
         :param kwargs: Any other named parameters to be passed through to NetworkX
-        :return: None
+        :return: A list of edges added, either equal to [(u, v)] or [(u, v), (v, u)]
+                 List will contain all labeled edges if multiedges are allowed
         '''
+
+        ret = []
 
         # Do not add the edge if it is a selfloop and those are not allowed
         if (u == v) and (not self.prop('selfloops')):
@@ -1053,25 +1184,30 @@ class SocialNetwork:
 
             # If the object is a MultiGraph or MultiDiGraph, connect a labeled multiedge
             if self.prop('multiedge'):
-                self.connect_multi(u, v, label, **kwargs)
+                ret = self.connect_multi(u, v, label, **kwargs)
 
             # Otherwise, create an unlabeled edge
             else:
-
                 # Create the edge and add a weight based on the desired weighting scheme
+                ret.append((u, v))
                 self.add_edge(u, v, **kwargs)
-                self._generate_edge_weight(u, v)
+                if 'weight' not in kwargs:
+                    self._generate_edge_weight(u, v)
 
                 # Add symmetric edge and generate weight if necessary
                 if all(self.props('symmetric', 'directed')):
+                    ret.append((v, u))
                     self.add_edge(v, u, **kwargs)
-                    self._generate_edge_weight(v, u)
+                    if 'weight' not in kwargs:
+                        self._generate_edge_weight(v, u)
 
             # Reset the relevant masks and normalized weights if necessary.
             # These features are 1-per-node, so they can be handled here whether the graph allows multiedges or not.
             self.reset_view(u, v, visibility=self.prop('visibility'))
             self._update_normalized_edge_weights(u)
             self._update_normalized_edge_weights(v)
+
+        return ret
 
     def connect_multi(self, u, v, label=None, **kwargs):
         '''
@@ -1081,8 +1217,10 @@ class SocialNetwork:
         :param v: The destination node
         :param label: The label to apply to the edge -- optional
         :param kwargs: Any other named parameters to be passed through to NetworkX
-        :return: None
+        :return: A list of added edges of the form (u, v, label)
         '''
+
+        ret = []
 
         # If no label is provided, get a new one
         if label is None:
@@ -1090,12 +1228,16 @@ class SocialNetwork:
 
         # Add the edge and generate a weight
         self.add_edge(u, v, label, **kwargs)
-        self._generate_edge_weight(u, v, label)
+        if 'weight' not in kwargs:
+            self._generate_edge_weight(u, v, label)
+        ret.append((u, v, label))
 
         # Add a symmetric edge if necessary
         if all(self.props('symmetric', 'directed')):
             self.add_edge(v, u, label, **kwargs)
-            self._generate_edge_weight(v, u, label)
+            if 'weight' not in kwargs:
+                self._generate_edge_weight(v, u, label)
+            ret.append((v, u, label))
 
     def disconnect(self, u, v, label=None, p=1.):
         '''
@@ -1105,8 +1247,11 @@ class SocialNetwork:
         :param v: The destination node of the edge
         :param label: The label of the edge to be removed -- optional
         :param p: The probability to delete the edge
-        :return: None
+        :return: A list of edges removed, either equal to [(u, v)] or [(u, v), (v, u)]
+                 List will contain all labeled edges if multiedges are allowed
         '''
+
+        ret = []
 
         # If the edge is a selfloop and selfloops must be maintained, return
         if (u == v) and (self.prop('selfloops')):
@@ -1117,10 +1262,11 @@ class SocialNetwork:
 
             # If the object is a MultiGraph or MultiDiGraph, delete a labeled multiedge
             if self.ismultigraph() or self.ismultidigraph():
-                self.disconnect_multi(u, v, label)
+                ret = self.disconnect_multi(u, v, label)
 
             # Otherwise, simply remove the edge, update masks, and if necessary renormalize edge weights
             else:
+                ret.append((u, v))
                 self.remove_edge(u, v)
                 del self.instance.graph['masks'][v][u]
                 if self.prop('normalize'):
@@ -1128,6 +1274,7 @@ class SocialNetwork:
 
                 # Remove symmetric edge if necessary
                 if all(self.props('symmetric', 'directed')):
+                    ret.append((v, u))
                     self.remove_edge(v, u)
 
                 # If mask visibility and weights are mutual, then delete the symmetric counterparts
@@ -1142,6 +1289,8 @@ class SocialNetwork:
             self._update_normalized_edge_weights(u)
             self._update_normalized_edge_weights(v)
 
+        return ret
+
     def disconnect_multi(self, u, v, label=None):
         '''
         Handles deleting an optionally labeled edge in MultiGraph or MultiDigraph.
@@ -1150,19 +1299,26 @@ class SocialNetwork:
         :param u: The source node
         :param v: The destination node
         :param label: The label of the edge to delete -- optional
-        :return: None
+        :return: A list of removed edges of the form (u, v, label)
         '''
+
+        ret = []
 
         # If there is a label provided, only remove the edge with that label
         if label is not None:
+            ret.append((u, v, label))
             self.remove_edge(u, v, label)
 
             # Remove symmetric edge if necessary
             if all(self.props('symmetric', 'directed')):
+                ret.append((v, u, label))
                 self.remove_edge(v, u, label)
 
         # If no label was provided, assume that all edges from u to v need to be removed.
         else:
+            ret = [(u, v, mylabel) for mylabel in self[u][v]]
+            if all(self.props('symmetric', 'directed')):
+                ret.extend([(v, u, mylabel) for mylabel in self[v][u]])
             # Empty out the edge list from u to v and, if necessary, v to u
             while v in self[u]:
                 self.remove_edge(u, v)
@@ -1181,52 +1337,132 @@ class SocialNetwork:
                 if self.prop('normalize'):
                     del self.instance.graph['normalized_weights'][u][v]
 
-    def update_voter(self, u):
+        return ret
+
+    def nextstate_voter(self, u):
         '''
-        Updates diffusion values of node u based on q = self.prop('num_voters').
-        If max(q, degree of u) neighbors of node u all agree, then u takes their opinion.
-        Otherwise, it flips its opinion with probability self.prop('p_update').
-        If q = 1, then u automatically copies the neighbor's value.
-        NOTE: Only defined for binary diffusion space.
 
         :param u: The node to update
         :return: None
         '''
         pass
 
-    def update_majority(self, u):
+    def nextstate_majority(self, u):
         '''
-        Updates diffusion values of node u based on the average opinion of its neighbors.
-        If a strict majority of neighbors disagree with u, then u flips its value.  Else it stays the same.
-        NOTE: Only defined for binary diffusion space.
 
         :param u: The node to update
         :return: None
         '''
         pass
 
-    def update_simple_average(self, u):
+    def nextstate_plurality(self, u):
         '''
 
-        :param u:
-        :return:
+        :param u: The node to update
+        :return: None
         '''
         pass
 
-    def update_weighted_average(self, u):
+    def nextstate_average(self, u):
+        local_avg = self.get_local_average(u)
+        myvals = self.prop('diffusion_space')[u]
+        K = self.prop('num_dimensions')
+        next_state = []
+        t = self.prop('types')[u]
+        for k in range(K):
+            diff = local_avg[k] - myvals[k]
+            if (t in CONFORMING and local_avg[k] * myvals[k] < 0) or\
+               (t in REBELLING and local_avg[k] * myvals[k] >= 0):
+                if self._has_property('resistance'):
+                    if abs(local_avg[k]) > self.prop('resistance')[u]:
+                        next_state.append(myvals[k] + (diff * self.prop('gravity')))
+                    else:
+                        next_state.append(myvals[k])
+                else:
+                    if t in CONFORMING:
+                        next_state.append(myvals[k] + (diff * self.prop('gravity')))
+                    else:
+                        next_state.append(0 - (myvals[k] + (diff * self.prop('gravity'))))
+            else:
+                next_state.append(myvals[k] + (diff * self.prop('gravity')))
+
+        if self.prop('dimensions') == 'continuous':
+            ret = []
+            for val in next_state:
+                if val < -1:
+                    ret.append(-1)
+                elif val > 1:
+                    ret.append(1)
+                else:
+                    ret.append(round(val, 2))
+            return ret
+
+        elif self.prop('dimensions') == 'binary':
+            ret = []
+            for i in range(len(next_state)):
+                if next_state[i] == 0 and self.prop('gravity') >= 0:
+                    ret.append(myvals[i])
+                elif next_state[i] == 0 and self.prop('gravity') < 0:
+                    ret.append(0 - myvals[i])
+                elif next_state[i] < 0:
+                    ret.append(-1)
+                else:
+                    ret.append(1)
+            return ret
+
+        elif self.prop('dimensions') == 'categorical':
+            return []
+
+    def simple_average(self, d):
         '''
 
-        :param u:
+        :param d:
         :return:
         '''
-        pass
+        ret = []
+        for k in range(self.prop('num_dimensions')):
+            vec = [d[i][k] for i in d]
+            ret.append(sum(vec) / len(vec))
+        return ret
+
+    def weighted_average(self, d, w):
+        '''
+
+        :param d:
+        :param w:
+        :return:
+        '''
+        ret = []
+        for k in range(self.prop('num_dimensions')):
+            total = 0
+            for key in d:
+                total += d[key][k] * w[key]
+            ret.append(round(total, 2))
+        return ret
 
     def update(self):
         '''
 
         :return:
         '''
-        pass
+        if self.prop('p_update') == 0:
+            return []
+        numupdates = min(self.prop('num_nodes_update'), self.prop('n'))
+        mynodes = list(self.nodes())
+        random.shuffle(mynodes)
+
+        next_states = {}
+        for i, node in enumerate(mynodes):
+            if i >= numupdates:
+                break
+            if coin_flip(self.prop('p_update')):
+                upd = self.prop('update_method')
+                if upd == 'average':
+                    next_states[node] = self.nextstate_average(node)
+                elif upd == 'weighted average':
+                    next_states[node] = self.nextstate_average(node, weighted=True)
+        for node in next_states:
+            self.instance.graph['diffusion_space'][node] = next_states[node]
 
     def reward(self, u, v):
         '''
@@ -1239,12 +1475,9 @@ class SocialNetwork:
 
         # Get distance between u and v, taking masks into account
         d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
-        print(self.prop('diffusion_space')[u])
-        print(self.get_view(u, v))
 
         # Get the % similarity that maximizes u's reward
-        maxval = 1 - self.prop('agent_models')[self.prop('types')[u]]['sim_max']
-        print(d, maxval)
+        maxval = self.prop('agent_models')[self.prop('types')[u]]['sim_max']
 
         # If totally homophilic, return 1 - distance
         if maxval == 1.:
@@ -1261,6 +1494,87 @@ class SocialNetwork:
         elif d < maxval:
             p = (maxval - d) / maxval
             return 1 - p
+
+    def get_positions(self):
+        '''
+
+        :return:
+        '''
+        layout = self.prop('layout')
+        pos = None
+        if layout == 'spring':
+            pos = nx.spring_layout(self)
+        elif layout == 'circle':
+            pos = nx.circular_layout(self)
+        elif layout == 'spiral':
+            pos = nx.spiral_layout(self)
+        elif layout == 'random':
+            pos = nx.random_layout(self)
+        elif layout == 'shell':
+            pos = nx.shell_layout(self)
+        else:
+            warn(f'Layout {layout} not supported.  Defaulting to spiral.')
+            pos = nx.spring_layout(self)
+        return np.array(list(pos.values())).T if pos else None
+
+    def get_connections(self):
+        '''
+
+        :return:
+        '''
+        if self.prop('p_connect') == 0:
+            return []
+        ret = []
+        allnodes = list(self.nodes())
+        mynodes = self.get_n_random_nodes(self.prop('num_nodes_connect'))
+        num_c = self.prop('num_connections')
+        for node in mynodes:
+            possible = [i for i in allnodes if i not in self[node] and self.reward(node, i) >= self.prop('thresh_connect')]
+            random.shuffle(possible)
+            possible = possible[:num_c]
+            for c in possible:
+                ret.extend(self.connect(node, c, p=self.prop('p_connect')))
+        return ret
+
+    def get_disconnections(self):
+        '''
+
+        :return:
+        '''
+        if self.prop('p_disconnect') == 0:
+            return []
+        ret = []
+        mynodes = self.get_n_random_nodes(self.prop('num_nodes_disconnect'))
+        num_d = self.prop('num_disconnections')
+        for node in mynodes:
+            possible = [i for i in self[node] if self.reward(node, i) < self.prop('thresh_disconnect')]
+            random.shuffle(possible)
+            possible = possible[:num_d]
+            for c in possible:
+                ret.extend(self.disconnect(node, c, p=self.prop('p_disconnect')))
+        return ret
+
+    def get_n_random_nodes(self, num):
+        '''
+
+        :param num:
+        :return:
+        '''
+        mynodes = list(self.nodes())
+        n = len(mynodes)
+        if num > n:
+            num = n
+        random.shuffle(mynodes)
+        return mynodes[:num]
+
+    def step(self):
+        '''
+
+        :return:
+        '''
+        self.get_disconnections()
+        self.update()
+        self.get_connections()
 
     # Method aliases
     prop = property

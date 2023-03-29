@@ -8,7 +8,7 @@ from inspect import getframeinfo, stack
 TESTCOUNT = 0
 PASSCOUNT = 0
 FAILTESTS = []
-verbose = False
+verbose = True
 
 def unittest(did_pass):
     """
