@@ -3,6 +3,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 import random
 
+from copy import deepcopy
+
 from helpers import ToolTip, TOOLTIP, DISTS, METRICS
 import networkx
 from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
@@ -194,6 +196,9 @@ class GUI:
 
         else:
             self.plot['fig'].clf()
+            if 'ax0' in self.data:
+                del self.data['ax0']
+            self.data['ax0'] = {}
 
         ncols = max(1, nsubplots)
         nrows = 3 if nsubplots == 0 else 4
@@ -225,6 +230,25 @@ class GUI:
 
         self.set_dataplot_entries()
 
+    def update_subplots(self, event):
+
+        stored = {}
+        if 'ax0' in self.data and self.data['ax0'] is not None:
+            stored['ax0'] = {i: self.data['ax0'][i] for i in self.data['ax0']}
+            # stored['ax0'] = deepcopy(self.data['ax0'])
+
+        self._init_plot(None)
+
+        print(self.data['ax0'])
+
+        if 'ax0' in stored:
+            self.data['ax0'] = stored['ax0']
+
+        print(self.data['ax0'])
+
+        self.create_plot()
+
+
     def _init_notebook(self):
 
         if self.root:
@@ -241,6 +265,7 @@ class GUI:
         self.notebook['animation'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['plots'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['evolution'] = ttk.Frame(self.notebook['notebook'])
+        self.notebook['diffusion'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['edit'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['command'] = ttk.Frame(self.notebook['notebook'])
 
@@ -248,6 +273,7 @@ class GUI:
         self.notebook['notebook'].add(self.notebook['animation'], text='ANI')
         self.notebook['notebook'].add(self.notebook['plots'], text='PLT')
         self.notebook['notebook'].add(self.notebook['evolution'], text='EVO')
+        self.notebook['notebook'].add(self.notebook['diffusion'], text='DIF')
         self.notebook['notebook'].add(self.notebook['edit'], text='EDT')
         self.notebook['notebook'].add(self.notebook['command'], text='CMD')
 
@@ -257,6 +283,7 @@ class GUI:
         self._populate_animation_tab()
         self._populate_plots_tab()
         self._populate_evolution_tab()
+        self._populate_diffusion_tab()
         self._populate_edit_tab()
 
     def _populate_parameters_tab(self):
@@ -285,9 +312,11 @@ class GUI:
         self.vars['topology'].set('small world')
         self._place_input_optionmenu('topology', 'topology', self.vars['topology'].get(), PROPSELECT['topology'],
                                      col=1, columnspan=3, sticky='ew', command=self.topology_popup)
+        self.set_tooltip('topology')
 
         self._place_input_label('saturation', 'topology', 'Saturation: ', row=1)
         self._place_input_entry('saturation', 'topology', row=1, col=1)
+        self.set_tooltip('saturation')
 
         self._place_labelframe('edge_weights', self.notebook['parameters'], 'Weights')
 
@@ -297,10 +326,6 @@ class GUI:
 
         self._place_input_label('weight_min', 'edge_weights', 'Minimum: ', row=1)
         self._place_input_entry('weight_min', 'edge_weights', row=1, col=1)
-        self.set_trace('weight_min', self.weight_minmaxmean_callback)
-        self.set_trace('weight_max', self.weight_minmaxmean_callback)
-        self.set_trace('weight_mean', self.weight_minmaxmean_callback)
-        self.set_trace('weight_stdev', self.weight_stdev_callback)
 
         self._place_input_label('weight_max', 'edge_weights', 'Maximum: ', row=1, col=2)
         self._place_input_entry('weight_max', 'edge_weights', row=1, col=3)
@@ -316,6 +341,18 @@ class GUI:
 
         self._place_input_checkbutton('normalize', 'edge_weights', text='Normalize', row=3, col=2, columnspan=2,
                                       sticky='e')
+
+        self.set_trace('weight_min', self.weight_minmaxmean_callback)
+        self.set_trace('weight_max', self.weight_minmaxmean_callback)
+        self.set_trace('weight_mean', self.weight_minmaxmean_callback)
+        self.set_trace('weight_stdev', self.weight_stdev_callback)
+
+        self.set_tooltip('weight_dist')
+        self.set_tooltip('weight_max')
+        self.set_tooltip('weight_min')
+        self.set_tooltip('weight_mean')
+        self.set_tooltip('weight_stdev')
+        self.set_tooltip('normalize')
 
     def _populate_animation_tab(self):
         self._place_labelframe('animation', self.notebook['animation'], 'Animation')
@@ -390,21 +427,13 @@ class GUI:
         self._place_input_optionmenu('labeledgesby', 'edges', self.vars['labeledgesby'].get(), ['-', 'betweenness', 'weight', 'label'], row=4,
                                      col=1, columnspan=3, sticky='ew')
 
-        # self._place_labelframe('play', self.notebook['animation'], '')
-        #
-        # self.buttons['play'] = tk.Button(self.frames['play'], text='Play')
-        # self.buttons['play'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # self.buttons['step'] = tk.Button(self.frames['play'], text='Step')
-        # self.buttons['step'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        # self.buttons['pause'] = tk.Button(self.frames['play'], text='Pause')
-        # self.buttons['pause'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
     def _populate_plots_tab(self):
         self._place_labelframe('dataplots', self.notebook['plots'], 'Data Plots')
 
         self._place_input_label('numplots', 'dataplots', '# Plots: ', row=0, col=0)
         self._place_input_scale('numplots', 'dataplots', 1, 7, 1, length=100, row=0, col=1, columnspan=2,
-                                command=self._init_plot)
+                                # command=self._init_plot)
+                                command=self.update_subplots)
         for i in range(1, 7):
             self._place_input_label(f'plot{i}data', 'dataplots', f'Plot {i}: ', row=i, col=0)
             if self.vars[f'plot{i}data'].get() == '':
@@ -416,18 +445,6 @@ class GUI:
             self.inputs[f'plot{i}data'].grid_forget()
 
     def _populate_evolution_tab(self):
-        self._place_labelframe('evolution', self.notebook['evolution'], 'Evolution Parameters')
-
-        self._place_input_label('num_dimensions', 'evolution', 'Dimensions: ')
-        self._place_input_entry('num_dimensions', 'evolution', col=1)
-
-        self._place_input_label('dimensions', 'evolution', 'Domain: ', row=1)
-        self._place_input_optionmenu('dimensions', 'evolution', self.vars['dimensions'].get(), ['binary', 'continuous'],
-                                     row=1, col=1, columnspan=3)
-
-        self._place_input_label('visibility', 'evolution', 'Visibility: ', row=2)
-        self._place_input_optionmenu('visibility', 'evolution', self.vars['visibility'].get(), ['visible', 'hidden', 'random'],
-                                     row=2, col=1, columnspan=3)
 
         self._place_labelframe('dynamics', self.notebook['evolution'], 'Dynamics')
 
@@ -447,7 +464,23 @@ class GUI:
         self._place_input_scale('disconnect_threshold', 'dynamics', 0, 1, .01, row=3, col=1, columnspan=2, length=100)
         self._place_input_entry('disconnect_threshold', 'dynamics', row=3, col=3)
 
-        self._place_labelframe('diffusion', self.notebook['evolution'], 'Diffusion Updates')
+    def _populate_diffusion_tab(self):
+
+        self._place_labelframe('parameters', self.notebook['diffusion'], 'Diffusion Parameters')
+
+        self._place_input_label('num_dimensions', 'parameters', 'Dimensions: ')
+        self._place_input_entry('num_dimensions', 'parameters', col=1)
+
+        self._place_input_label('dimensions', 'parameters', 'Domain: ', row=1)
+        self._place_input_optionmenu('dimensions', 'parameters', self.vars['dimensions'].get(), ['binary', 'continuous', 'categorical'],
+                                     row=1, col=1, columnspan=3)
+
+        self._place_input_label('visibility', 'parameters', 'Visibility: ', row=2)
+        self._place_input_optionmenu('visibility', 'parameters', self.vars['visibility'].get(),
+                                     ['visible', 'hidden', 'random'],
+                                     row=2, col=1, columnspan=3)
+
+        self._place_labelframe('diffusion', self.notebook['diffusion'], 'Diffusion Updates')
 
         self._place_input_label('p_update', 'diffusion', 'Pr(upd): ', row=0)
         self._place_input_scale('p_update', 'diffusion', 0, 1, .01, row=0, col=1, columnspan=2, length=90)
@@ -465,11 +498,12 @@ class GUI:
         self._place_input_label('update_method', 'diffusion', 'Updates: ', row=4)
         if self.vars['update_method'].get() == '':
             self.vars['update_method'].set('-')
-        self._place_input_optionmenu('update_method', 'diffusion', self.vars['update_method'].get(), ['-', 'voter', 'majority', 'average',
-                                                                         'transmission'],
+        self._place_input_optionmenu('update_method', 'diffusion', self.vars['update_method'].get(),
+                                     ['-', 'voter', 'majority', 'average',
+                                      'transmission'],
                                      row=4, col=1, columnspan=3, sticky='ew')
 
-        self._place_labelframe('reward', self.notebook['evolution'], 'Reward')
+        self._place_labelframe('reward', self.notebook['diffusion'], 'Reward')
 
         self._place_input_label('max_reward', 'reward', 'Sim. Max.: ', row=0)
         self._place_input_scale('max_reward', 'reward', 0, 1, .5, row=0, col=1, columnspan=2, length=70)
@@ -477,8 +511,10 @@ class GUI:
         self._place_input_label('distance', 'reward', 'Distance: ', row=1)
         if self.vars['distance'].get() == '':
             self.vars['distance'].set('hamming')
-        self._place_input_optionmenu('distance', 'reward', self.vars['distance'].get(), ['hamming', 'euclidean', 'cosine'],
+        self._place_input_optionmenu('distance', 'reward', self.vars['distance'].get(),
+                                     ['hamming', 'euclidean', 'cosine'],
                                      row=1, col=1, columnspan=3, sticky='ew')
+
 
     def _populate_edit_tab(self):
         self._place_labelframe('nodeedit', self.notebook['edit'], 'Nodes')
@@ -575,11 +611,15 @@ class GUI:
                 self.problems.add('weight_max')
                 self.inputs['weight_min'].configure(bg=ERRCOLOR)
                 self.inputs['weight_max'].configure(bg=ERRCOLOR)
+                self.tooltips['weight_min'].update(TOOLTIP['weight_min']['error'], ERRCOLOR)
+                self.tooltips['weight_max'].update(TOOLTIP['weight_max']['error'], ERRCOLOR)
             else:
                 for tag in ['weight_min', 'weight_max']:
                     if tag in self.problems:
                         self.problems.remove(tag)
                 self.reset_bgcolor(['weight_min', 'weight_max'])
+                self.tooltips['weight_min'].update(TOOLTIP['weight_min']['normal'], NRMCOLOR)
+                self.tooltips['weight_max'].update(TOOLTIP['weight_max']['normal'], NRMCOLOR)
 
         else:
             try:
@@ -596,11 +636,18 @@ class GUI:
                 self.inputs['weight_min'].configure(bg=ERRCOLOR)
                 self.inputs['weight_max'].configure(bg=ERRCOLOR)
                 self.inputs['weight_mean'].configure(bg=ERRCOLOR)
+                self.tooltips['weight_min'].update(TOOLTIP['weight_min']['error'], ERRCOLOR)
+                self.tooltips['weight_max'].update(TOOLTIP['weight_max']['error'], ERRCOLOR)
+                self.tooltips['weight_mean'].update(TOOLTIP['weight_mean']['error'], ERRCOLOR)
+
             else:
                 for tag in ['weight_min', 'weight_max', 'weight_mean']:
                     if tag in self.problems:
                         self.problems.remove(tag)
                 self.reset_bgcolor(['weight_min', 'weight_max', 'weight_mean'])
+                self.tooltips['weight_mean'].update(TOOLTIP['weight_mean']['normal'], NRMCOLOR)
+                self.tooltips['weight_max'].update(TOOLTIP['weight_max']['normal'], NRMCOLOR)
+                self.tooltips['weight_min'].update(TOOLTIP['weight_min']['normal'], NRMCOLOR)
 
     def weight_stdev_callback(self, *args):
         try:
@@ -617,10 +664,12 @@ class GUI:
         if stdev > dist1 or stdev > dist2:
             self.problems.add('weight_stdev')
             self.inputs['weight_stdev'].configure(bg=WRNCOLOR)
+            self.tooltips['weight_stdev'].update(TOOLTIP['weight_stdev']['warn'], WRNCOLOR)
         else:
             if 'weight_stdev' in self.problems:
                 self.problems.remove('weight_stdev')
                 self.reset_bgcolor(['weight_stdev'])
+                self.tooltips['weight_stdev'].update(TOOLTIP['weight_stdev']['normal'], NRMCOLOR)
 
     def weight_dist_callback(self, *args):
         d = self.vars['weight_dist'].get()
@@ -693,14 +742,13 @@ class GUI:
     def set_dataplot_entries(self):
         if 'fig' not in self.plot:
             return
-        nsubplots = self.vars['numplots'].get() - 1
-        for i in range(1, 7):
-            if i <= nsubplots:
-                self.labels[f'plot{i}data'].grid(row=i, column=0)
-                self.inputs[f'plot{i}data'].grid(row=i, column=1, columnspan=3, sticky='ew')
-            else:
-                self.labels[f'plot{i}data'].grid_forget()
-                self.inputs[f'plot{i}data'].grid_forget()
+        nsubplots = self.vars['numplots'].get()
+        for i in range(1, nsubplots):
+            self.labels[f'plot{i}data'].grid(row=i, column=0)
+            self.inputs[f'plot{i}data'].grid(row=i, column=1, columnspan=3, sticky='ew')
+        for i in range(nsubplots, 7):
+            self.labels[f'plot{i}data'].grid_forget()
+            self.inputs[f'plot{i}data'].grid_forget()
 
     def set_tooltip(self, tag):
         self.tooltips[tag] = ToolTip(self.inputs[tag], TOOLTIP[tag]['normal'])
@@ -722,6 +770,8 @@ class GUI:
         pos = None
         if 'pos' in self.data['ax0']:
             pos = self.data['ax0']['pos']
+        if self.vars['staticpos'].get():
+            return pos
         if layout == 'spring':
             return networkx.spring_layout(self.graph, pos=pos)
         elif layout == 'circle':
@@ -731,14 +781,20 @@ class GUI:
         elif layout == 'shell':
             return networkx.shell_layout(self.graph, pos=pos)
         elif layout == 'random':
-            return networkx.spring_layout(self.graph, pos=pos)
+            return networkx.random_layout(self.graph, pos=pos)
 
     def create_plot(self):
-        self.data['ax0'] = {}
-
-        self.data['ax0']['pos'] = self.get_positions()
+        if self.graph is None:
+            return
+        if 'ax0' not in self.data:
+            self.data['ax0'] = {}
+        elif self.data['ax0'] is None:
+            self.data['ax0'] = {}
+        if 'pos' not in self.data['ax0']:
+            self.data['ax0']['pos'] = self.get_positions()
         pos = self.data['ax0']['pos']
-        self.data['ax0']['selflooppos'] = {i: (pos[i][0], pos[i][1] + .05) for i in pos}
+        if self.graph.prop('selfloops'):
+            self.data['ax0']['selflooppos'] = {i: (pos[i][0], pos[i][1] + .05) for i in pos}
         self.data['ax0']['lines'] = {}
         alpha = self.vars['edgealpha'].get()
         sizes = self.get_node_sizes()
@@ -746,11 +802,6 @@ class GUI:
             x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
             if e[0] == e[1]:
                 continue
-            #     print('selfloop')
-            #     self.data['ax0']['lines'][e] = self.plot['axes']['ax0'].scatter(pos[e[0]][0], pos[e[0]][1] + .05,
-            #                                                                     s=sizes[e[0]] * 1.5, facecolors='none',
-            #                                                                     edgecolors='k', zorder=0)
-            #     continue
             self.data['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
 
         if self.graph.prop('selfloops'):
@@ -776,11 +827,14 @@ class GUI:
         self.plot['canvas'].draw_idle()
 
     def clear(self):
+        self.drawing = False
         del self.graph
         self.graph = None
         self.data = {}
         for i in range(7):
-            self.plot['axes'][f'ax{i}'].clear()
+            if f'ax{i}' in self.plot['axes']:
+                del self.plot['axes'][f'ax{i}']
+                self.plot['axes'][f'ax{i}'] = {}
         self._init_plot(None)
 
     def get_node_sizes(self):
@@ -967,7 +1021,18 @@ class GUI:
         self.relabel_nodes(None)
         # self.add_edges(add)
 
+    def animate(self):
+        if self.drawing:
+            self.step()
+            self.plot['canvas'].draw_idle()
+            # Speed goes 0 to 5
+            speed = self.vars['speed'].get()
+            wait = 1000 - (150 * speed)
+            self.root.after(wait, self.animate)
+
     def play(self):
+        if self.graph is None:
+            return
         if self.drawing:
             self.drawing = False
             self.buttons['play'].configure(text='Play')
@@ -981,4 +1046,5 @@ class GUI:
             if self.parent is not None:
                 self.parent.drawing = True
                 self.parent.buttons['play'].configure(text='Pause')
+            self.animate()
             # animate

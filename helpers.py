@@ -157,5 +157,17 @@ Symmetric directed edges may have different weights from each other.'''},
            'directed': {'normal': '''param \'directed\': (bool) whether graph edges are directed.'''},
            'multiedge': {'normal': '''param \'multiedge\': (bool) whether multiple edges are allowed with the same source and destination nodes.'''},
            'selfloops': {'normal': '''param \'selfloops\': (bool) whether self-edges are enforced.
-If true, self-edges cannot be deleted.  If false, they cannot be added.'''}
+If true, self-edges cannot be deleted.  If false, they cannot be added.'''},
+           'topology': {'normal': '''param \'topology\': (str) which generation algorithm to use for creating edges.'''},
+           'saturation': {'normal': '''param \'saturation\': (float) the initial average node degree across the network.'''},
+           'weight_dist': {'normal': '''param \'weight_dist\': (str) the distribution from which to draw edge weights.'''},
+           'weight_mean': {'normal': '''param \'weight_mean\': (str) the mean of the weight distribution; only applicable for weight_dist=\'normal\'.''',
+                           'error': '''This value must be between weight_min and weight_max.'''},
+           'weight_stdev': {'normal': '''param \'weight_stdev\': (str) the standard deviation of the weight distribution; only applicable for weight_dist=\'normal\'.''',
+                            'warn': '''Value is set high relative to min, max, and mean.  Distribution may not be as expected.'''},
+           'weight_min': {'normal': '''param \'weight_min\': (str) the minimum of the weight distribution; only applicable for weight_dist=\'normal\' or \'uniform\'.''',
+                          'error': '''This value must be strictly less than weight_max and (if applicable) weight_mean.'''},
+           'weight_max': {'normal': '''param \'weight_max\': (str) the maximum of the weight distribution; only applicable for weight_dist=\'normal\' or \'uniform\'.''',
+                          'error': '''This value must be strictly greater than weight_min and (if applicable) weight_mean.'''},
+           'normalize': {'normal': '''param \'normalize\': (bool) whether to normalize edge weights.'''},
            }
