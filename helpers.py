@@ -57,13 +57,6 @@ def dist(vec1, vec2):
     distvec2 = [vec2[i] for i in range(len(vec2)) if vec2[i] != 0.]
     return distance.hamming(distvec1, distvec2)
 
-def dummy():
-    '''
-    A dummy function to aid in disabling exit functionality on GUI toplevel window.
-    :return:
-    '''
-    pass
-
 # Helpful constants to check data types
 BOOL = type(bool())
 STR = type(str())
