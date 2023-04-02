@@ -85,7 +85,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'normalize': TF,
               'distance': ['hamming', 'euclidean', 'cosine'],
               'layout': ['spring', 'circle', 'spiral', 'random', 'shell'],
-              'num_influencers': POSNUM,
+              'max_influencers': POSNUM,
               'num_node_updates': POSNUM,
               'update_method': ['average', 'weighted average', 'transmission', 'majority', 'voter', 'qvoter'],
               'gravity': SYMBIN,
@@ -142,17 +142,19 @@ PROPDEFAULTS = {'n': 0,
                 'normalize': False,
                 'sim_max': 1.,
                 'layout': 'spring',
-                'gravity': -1.,
+                'gravity': 1.,
                 'p_update': 1.,
                 'num_nodes_update': MAXINT_32,
                 'p_connect': 0.,
                 'p_disconnect': 0.,
                 'num_nodes_connect': MAXINT_32,
                 'num_nodes_disconnect': MAXINT_32,
-                'num_connections': 0,
-                'num_disconnections': 0,
+                'num_connections': MAXINT_32,
+                'num_disconnections': MAXINT_32,
                 'thresh_connect': 0,
                 'thresh_disconnect': 1,
+                'update_method': 'average',
+                'max_influencers': MAXINT_32,
                 }
 
 class SocialNetwork:
@@ -1547,9 +1549,10 @@ class SocialNetwork:
         mynodes = self.get_n_random_nodes(self.prop('num_nodes_disconnect'))
         num_d = self.prop('num_disconnections')
         for node in mynodes:
-            possible = [i for i in self[node] if self.reward(node, i) < self.prop('thresh_disconnect')]
+            myedges = [e for e in self.edges if e[0] == node]
+            possible = [j for (i, j) in myedges if self.reward(node, j) < self.prop('thresh_disconnect') and j != node]
             random.shuffle(possible)
-            possible = possible[:num_d]
+            possible = sorted(possible[:num_d])
             for c in possible:
                 ret.extend(self.disconnect(node, c, p=self.prop('p_disconnect')))
         return ret
@@ -1572,9 +1575,10 @@ class SocialNetwork:
 
         :return:
         '''
-        self.get_disconnections()
+        rmv = self.get_disconnections()
         self.update()
-        self.get_connections()
+        add = self.get_connections()
+        return rmv, add
 
     # Method aliases
     prop = property

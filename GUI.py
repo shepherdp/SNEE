@@ -1,6 +1,9 @@
 # GUI Class
+import matplotlib.pyplot as plt
+import networkx as nx
+import random
 
-from helpers import ToolTip, TOOLTIP, DISTS, METRICS, dummy
+from helpers import ToolTip, TOOLTIP, DISTS, METRICS
 import networkx
 from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
 
@@ -10,10 +13,13 @@ from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationTool
 from matplotlib.figure import Figure
 import numpy as np
 
+import matplotlib.cm as cm
+
 ERRCOLOR = 'pink'
 WRNCOLOR = 'moccasin'
 OKCOLOR = 'palegreen'
 NRMCOLOR = 'white'
+COLORS = cm.viridis
 
 class GUI:
 
@@ -87,6 +93,7 @@ class GUI:
 
             self.graph = None
             self.data = {f'ax{i}': None for i in range(7)}
+            self.drawing = False
 
         else:
             self.root = tk.Toplevel(self.parent.root)
@@ -94,6 +101,7 @@ class GUI:
             self.vars = self.parent.vars
             self.graph = self.parent.graph
             self.data = self.parent.data
+            self.drawing = self.parent.drawing
 
         self.tooltips = {}
         self.frames = {}
@@ -117,7 +125,7 @@ class GUI:
         self.invoke_callbacks()
 
         if self.parent is not None:
-            self.root.protocol("WM_DELETE_WINDOW", dummy)
+            self.root.protocol("WM_DELETE_WINDOW", self.popoff)
         else:
             self.root.mainloop()
 
@@ -152,12 +160,24 @@ class GUI:
             self.frames['notebook'].rowconfigure(0, weight=1)
 
     def _init_status(self):
+
+        self._place_labelframe('buttons', self.frames['status'], '')
+        self.buttons['construct'] = tk.Button(self.frames['buttons'], text='Construct', width=18, command=self.construct)
+        self.buttons['construct'].grid(row=0, column=0, sticky='ew', padx=2, pady=1)
+        self.buttons['clear'] = tk.Button(self.frames['buttons'], text='Clear', width=18, command=self.clear)
+        self.buttons['clear'].grid(row=0, column=2, sticky='ew', padx=2, pady=1)
+        self.buttons['step'] = tk.Button(self.frames['buttons'], text='Step', width=18, command=self.step)
+        self.buttons['step'].grid(row=1, column=0, sticky='ew', padx=2, pady=1)
+
+        mytext = 'Pause' if self.drawing else 'Play'
+        self.buttons['play'] = tk.Button(self.frames['buttons'], text=mytext, width=18, command=self.play)
+        self.buttons['play'].grid(row=1, column=2, sticky='ew', padx=2, pady=1)
         if self.parent:
             self.buttons['popoff'] = tk.Button(self.frames['status'], text='Pop On', command=self.popoff)
-            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=6, pady=1)
         else:
             self.buttons['popoff'] = tk.Button(self.frames['status'], text='Pop Off', command=self.popoff)
-            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+            self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=6, pady=1)
 
         self.labels['status'] = tk.Label(self.frames['status'], text="All good right now.")
         self.labels['status'].pack(side=tk.TOP, fill=tk.BOTH, expand=True)
@@ -200,6 +220,7 @@ class GUI:
             self.plot['axes'][ax].set_yticks([])
 
         self.plot['fig'].subplots_adjust(bottom=0.025, left=0.025, top=0.975, right=0.975, hspace=0.1, wspace=0.1)
+        # plt.autoscale()
         self.plot['canvas'].draw()
 
         self.set_dataplot_entries()
@@ -244,6 +265,7 @@ class GUI:
 
         self._place_input_label('n', 'graph_structure', 'Nodes: ')
         self._place_input_entry('n', 'graph_structure', col=1)
+        self.vars['n'].set(20)
         self.set_trace('n', self.n_callback)
         self.set_tooltip('n')
 
@@ -260,6 +282,7 @@ class GUI:
         self._place_labelframe('topology', self.notebook['parameters'], 'Topology')
 
         self._place_input_label('topology', 'topology', 'Topology: ')
+        self.vars['topology'].set('small world')
         self._place_input_optionmenu('topology', 'topology', self.vars['topology'].get(), PROPSELECT['topology'],
                                      col=1, columnspan=3, sticky='ew', command=self.topology_popup)
 
@@ -294,12 +317,6 @@ class GUI:
         self._place_input_checkbutton('normalize', 'edge_weights', text='Normalize', row=3, col=2, columnspan=2,
                                       sticky='e')
 
-        self._place_labelframe('construct', self.notebook['parameters'], '')
-        self.buttons['construct'] = tk.Button(self.frames['construct'], text='Construct', command=self.construct)
-        self.buttons['construct'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.buttons['clear'] = tk.Button(self.frames['construct'], text='Clear', command=self.clear)
-        self.buttons['clear'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-
     def _populate_animation_tab(self):
         self._place_labelframe('animation', self.notebook['animation'], 'Animation')
 
@@ -310,7 +327,8 @@ class GUI:
         if self.vars['layout'].get() == '':
             self.vars['layout'].set('spring')
         self._place_input_optionmenu('layout', 'animation', self.vars['layout'].get(),
-                                     ['spring', 'circle','spiral','random','shell'], row=0, col=1, columnspan=2, sticky='ew')
+                                     ['spring', 'circle', 'spiral', 'random', 'shell'], row=0, col=1, columnspan=2,
+                                     sticky='ew', command=self.update_layout_handler)
 
         self._place_labelframe('nodes', self.notebook['animation'], 'Nodes')
 
@@ -331,29 +349,36 @@ class GUI:
         if self.vars['sizenodesby'].get() == '':
             self.vars['sizenodesby'].set('-')
         self._place_input_optionmenu('sizenodesby', 'nodes', self.vars['sizenodesby'].get(), METRICS, row=2, col=1,
-                                     columnspan=3, sticky='ew')
+                                     columnspan=3, sticky='ew', command=self.resize_nodes)
         self._place_input_label('colornodesby', 'nodes', 'Color nodes: ', row=3, col=0)
         if self.vars['colornodesby'].get() == '':
             self.vars['colornodesby'].set('-')
         self._place_input_optionmenu('colornodesby', 'nodes', self.vars['colornodesby'].get(),
-                                     METRICS + ['type', 'diff. space'], row=3, col=1, columnspan=3, sticky='ew')
+                                     ['-', 'type', 'diff. space'] + METRICS[1:], row=3, col=1, columnspan=3,
+                                     command=self.recolor_nodes, sticky='ew')
         self._place_input_label('labelnodesby', 'nodes', 'Label nodes: ', row=4, col=0)
         if self.vars['labelnodesby'].get() == '':
             self.vars['labelnodesby'].set('-')
         self._place_input_optionmenu('labelnodesby', 'nodes', self.vars['labelnodesby'].get(),
-                                     METRICS + ['name', 'diff. space', 'type'], row=4, col=1, columnspan=3, sticky='ew')
+                                     ['-', 'name', 'type', 'diff. space'] + METRICS[1:], row=4, col=1, columnspan=3,
+                                     sticky='ew', command=self.relabel_nodes)
 
         self._place_labelframe('edges', self.notebook['animation'], 'Edges')
 
         self._place_input_label('edgealpha', 'edges', 'Alpha: ', row=0, col=0)
-        self._place_input_scale('edgealpha', 'edges', 0, 1, .01, length=70, row=0, col=1, columnspan=2)
+        if self.parent is not None:
+            self.vars['edgealpha'].set(self.parent.vars['edgealpha'].get())
+        else:
+            self.vars['edgealpha'].set(.2)
+        self._place_input_scale('edgealpha', 'edges', 0, 1, .01, length=70, row=0, col=1, columnspan=2,
+                                command=self.realpha_edges)
         self._place_input_entry('edgealpha', 'edges', row=0, col=3)
 
         self._place_input_label('alphaedgesby', 'edges', 'Darken edges: ', row=1, col=0)
         if self.vars['alphaedgesby'].get() == '':
             self.vars['alphaedgesby'].set('-')
         self._place_input_optionmenu('alphaedgesby', 'edges', self.vars['alphaedgesby'].get(), ['-', 'betweenness', 'weight'], row=1, col=1,
-                                     columnspan=3, sticky='ew')
+                                     columnspan=3, sticky='ew', command=self.realpha_edges)
         self._place_input_label('coloredgesby', 'edges', 'Color edges: ', row=2, col=0)
         if self.vars['coloredgesby'].get() == '':
             self.vars['coloredgesby'].set('-')
@@ -365,14 +390,14 @@ class GUI:
         self._place_input_optionmenu('labeledgesby', 'edges', self.vars['labeledgesby'].get(), ['-', 'betweenness', 'weight', 'label'], row=4,
                                      col=1, columnspan=3, sticky='ew')
 
-        self._place_labelframe('play', self.notebook['animation'], '')
-
-        self.buttons['play'] = tk.Button(self.frames['play'], text='Play')
-        self.buttons['play'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.buttons['step'] = tk.Button(self.frames['play'], text='Step')
-        self.buttons['step'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        self.buttons['pause'] = tk.Button(self.frames['play'], text='Pause')
-        self.buttons['pause'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # self._place_labelframe('play', self.notebook['animation'], '')
+        #
+        # self.buttons['play'] = tk.Button(self.frames['play'], text='Play')
+        # self.buttons['play'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # self.buttons['step'] = tk.Button(self.frames['play'], text='Step')
+        # self.buttons['step'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # self.buttons['pause'] = tk.Button(self.frames['play'], text='Pause')
+        # self.buttons['pause'].pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
     def _populate_plots_tab(self):
         self._place_labelframe('dataplots', self.notebook['plots'], 'Data Plots')
@@ -645,7 +670,6 @@ class GUI:
 
     def topology_popup(self, event):
         top = self.vars['topology'].get()
-        print(top)
 
     def disable_vars(self, *vars):
         for var in vars:
@@ -686,25 +710,275 @@ class GUI:
             if self.inputs[i].cget('state') == 'normal' and self.inputs[i].cget('bg') == ERRCOLOR:
                 print('No good')
                 return
-        n = self.vars['n'].get()
-        self.graph = SocialNetwork(n=n)
-        pos = networkx.spring_layout(self.graph)
-        self.data['ax0'] = self.plot['axes']['ax0'].scatter(*np.array(list(pos.values())).T)
+        vals = {i: self.vars[i].get() for i in self.vars}
+        self.graph = SocialNetwork(n=vals['n'], selfloops=True, topology=vals['topology'],
+                                   p_disconnect=1., p_connect=0., thresh_disconnect=.5, num_dimensions=4)
+        self.create_plot()
+
+    def get_positions(self):
+        if self.graph is None:
+            return
+        layout = self.vars['layout'].get()
+        pos = None
+        if 'pos' in self.data['ax0']:
+            pos = self.data['ax0']['pos']
+        if layout == 'spring':
+            return networkx.spring_layout(self.graph, pos=pos)
+        elif layout == 'circle':
+            return networkx.circular_layout(self.graph, pos=pos)
+        elif layout == 'spiral':
+            return networkx.spiral_layout(self.graph, pos=pos)
+        elif layout == 'shell':
+            return networkx.shell_layout(self.graph, pos=pos)
+        elif layout == 'random':
+            return networkx.spring_layout(self.graph, pos=pos)
+
+    def create_plot(self):
+        self.data['ax0'] = {}
+
+        self.data['ax0']['pos'] = self.get_positions()
+        pos = self.data['ax0']['pos']
+        self.data['ax0']['selflooppos'] = {i: (pos[i][0], pos[i][1] + .05) for i in pos}
+        self.data['ax0']['lines'] = {}
+        alpha = self.vars['edgealpha'].get()
+        sizes = self.get_node_sizes()
+        for e in self.graph.edges():
+            x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
+            if e[0] == e[1]:
+                continue
+            #     print('selfloop')
+            #     self.data['ax0']['lines'][e] = self.plot['axes']['ax0'].scatter(pos[e[0]][0], pos[e[0]][1] + .05,
+            #                                                                     s=sizes[e[0]] * 1.5, facecolors='none',
+            #                                                                     edgecolors='k', zorder=0)
+            #     continue
+            self.data['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
+
+        if self.graph.prop('selfloops'):
+            self.data['ax0']['selfloops'] = self.plot['axes']['ax0'].scatter(*np.array(list(self.data['ax0']['selflooppos'].values())).T,
+                                                                             s=sizes,
+                                                                             facecolors='none', edgecolors='k',
+                                                                             alpha=alpha, zorder=0)
+
+        self.data['ax0']['nodes'] = self.plot['axes']['ax0'].scatter(*np.array(list(pos.values())).T,
+                                                                     zorder=1, s=sizes)
+        self.data['ax0']['nodelabels'] = {}
+        labels = self.get_node_labels()
+        for node in self.graph.nodes:
+            self.data['ax0']['nodelabels'][node] = self.plot['axes']['ax0'].annotate(labels[node],
+                                                                                     (pos[node][0],
+                                                                                      pos[node][1]),
+                                                                                      zorder=2)
+
+        self.resize_nodes(None)
+        self.realpha_nodes(None)
+        self.recolor_nodes(None)
+        self.realpha_edges(None)
         self.plot['canvas'].draw_idle()
 
     def clear(self):
         del self.graph
         self.graph = None
+        self.data = {}
+        for i in range(7):
+            self.plot['axes'][f'ax{i}'].clear()
         self._init_plot(None)
+
+    def get_node_sizes(self):
+        if self.graph is None:
+            return
+
+        metric = self.vars['sizenodesby'].get()
+        rawsizes = np.full(self.graph.prop('n'), self.vars['size'].get())
+        if metric == '-':
+            return rawsizes
+        elif metric == 'betweenness':
+            btwn = networkx.betweenness_centrality(self.graph).values()
+            return [(a * b)**1.2 + 100 for a, b in zip(rawsizes, btwn)]
+        elif metric == 'closeness':
+            clsn = networkx.closeness_centrality(self.graph).values()
+            return [(a * b)**1.2 + 100 for a, b in zip(rawsizes, clsn)]
+        elif metric == 'clustering':
+            clst = networkx.clustering(self.graph).values()
+            return [(a * b)**1.2 + 100 for a, b in zip(rawsizes, clst)]
+        elif metric == 'degree':
+            dgr = networkx.degree_centrality(self.graph).values()
+            return [(a * b) ** 1.2 + 100 for a, b in zip(rawsizes, dgr)]
+
+    def get_node_labels(self):
+        if self.graph is None:
+            return
+        metric = self.vars['labelnodesby'].get()
+        if metric == '-':
+            return {node: '' for node in self.graph}
+        elif metric == 'name':
+            return {node: str(node) for node in self.graph}
+        elif metric == 'type':
+            return {node: self.graph.prop('types')[node] for node in self.graph}
+        elif metric == 'betweenness':
+            btwn = networkx.betweenness_centrality(self.graph)
+            return {node: round(btwn[node], 3) for node in self.graph}
+        elif metric == 'closeness':
+            clsn = networkx.closeness_centrality(self.graph)
+            return {node: round(clsn[node], 3) for node in self.graph}
+        elif metric == 'clustering':
+            clst = networkx.clustering(self.graph)
+            return {node: round(clst[node], 3) for node in self.graph}
+        elif metric == 'degree':
+            dgr = networkx.degree_centrality(self.graph)
+            return {node: round(dgr[node], 3) for node in self.graph}
+        elif metric == 'diff. space':
+            return {node: str(self.graph.prop('diffusion_space')[node][1:-1]) for node in self.graph.nodes}
+
+    def get_node_colors(self):
+        if self.graph is None:
+            return
+        metric = self.vars['colornodesby'].get()
+        if metric == '-':
+            return {node: 'b' for node in self.graph}
+        # elif metric == 'type':
+        #     return {node: self.graph.prop('types')[node] for node in self.graph}
+        elif metric == 'betweenness':
+            btwn = networkx.betweenness_centrality(self.graph)
+            return {node: COLORS(btwn[node]) for node in self.graph}
+        elif metric == 'closeness':
+            clsn = networkx.closeness_centrality(self.graph)
+            return {node: COLORS(clsn[node]) for node in self.graph}
+        elif metric == 'clustering':
+            clst = networkx.clustering(self.graph)
+            return {node: COLORS(clst[node]) for node in self.graph}
+        elif metric == 'degree':
+            dgr = networkx.degree_centrality(self.graph)
+            return {node: COLORS(dgr[node]) for node in self.graph}
+
+    def relabel_nodes(self, event):
+        if self.graph is None:
+            return
+        labels = self.get_node_labels()
+        for node in self.data['ax0']['nodelabels']:
+            self.data['ax0']['nodelabels'][node].set_text(labels[node])
+        self.plot['canvas'].draw_idle()
 
     def resize_nodes(self, event):
         if self.graph is None:
             return
-        self.data['ax0'].set_sizes(np.full(7, self.vars['size'].get()))
+        s = self.get_node_sizes()
+        if self.graph.prop('selfloops'):
+            self.data['ax0']['selfloops'].set_sizes(s)
+        self.data['ax0']['nodes'].set_sizes(s)
         self.plot['canvas'].draw_idle()
 
     def realpha_nodes(self, event):
         if self.graph is None:
             return
-        self.data['ax0'].set_alpha(np.full(7, self.vars['nodealpha'].get()))
+        self.data['ax0']['nodes'].set_alpha(self.vars['nodealpha'].get())
         self.plot['canvas'].draw_idle()
+
+    def recolor_nodes(self, event):
+        if self.graph is None:
+            return
+        self.data['ax0']['nodes'].set_color(self.get_node_colors().values())
+        self.plot['canvas'].draw_idle()
+
+    def reposition_nodes(self, event):
+        if self.graph is None:
+            return
+        self.data['ax0']['pos'] = self.get_positions()
+        pos = np.array(list(self.data['ax0']['pos'].values())).T
+        self.data['ax0']['nodes'].set_offsets(np.c_[pos[0], pos[1]])
+        if self.graph.prop('selfloops'):
+            self.data['ax0']['selflooppos'] = {i: (self.data['ax0']['pos'][i][0], self.data['ax0']['pos'][i][1] + .05)
+                                               for i in self.data['ax0']['pos']}
+            selflooppos = np.array(list(self.data['ax0']['selflooppos'].values())).T
+            self.data['ax0']['selfloops'].set_offsets(np.c_[selflooppos[0], selflooppos[1]])
+        for node in self.data['ax0']['nodelabels']:
+            self.data['ax0']['nodelabels'][node].set_position((pos[0][node], pos[1][node]))
+        self.realpha_nodes(None)
+        self.realpha_edges(None)
+        self.plot['canvas'].draw_idle()
+
+    def realpha_edges(self, event):
+        if self.graph is None:
+            return
+        alpha = self.vars['edgealpha'].get()
+        for line in self.data['ax0']['lines']:
+            self.data['ax0']['lines'][line].set_alpha(alpha)
+        if self.graph.prop('selfloops'):
+            self.data['ax0']['selfloops'].set_alpha(self.vars['edgealpha'].get())
+        self.plot['canvas'].draw_idle()
+
+    def reposition_edges(self):
+        if self.graph is None:
+            return
+        pos = np.array(list(self.data['ax0']['pos'].values())).T
+        alpha = self.vars['edgealpha'].get()
+        for line in self.data['ax0']['lines'].keys():
+            self.data['ax0']['lines'][line].set_xdata([pos[0][line[0]], pos[0][line[1]]])
+            self.data['ax0']['lines'][line].set_ydata([pos[1][line[0]], pos[1][line[1]]])
+            self.data['ax0']['lines'][line].set_alpha(alpha)
+
+
+    def update_layout_handler(self, event):
+        if not self.graph:
+            return
+
+        self.reposition_nodes(None)
+        self.reposition_edges()
+
+        self.plot['canvas'].draw_idle()
+
+    def remove_edges(self, rmv):
+        '''
+
+        :param rmv:
+        :return:
+        '''
+        for e in rmv:
+            line = self.data['ax0']['lines'][e]
+            self.plot['axes']['ax0'].lines.remove(line)
+            del self.data['ax0']['lines'][e]
+
+        self.reposition_nodes(None)
+        self.reposition_edges()
+
+        self.plot['canvas'].draw_idle()
+
+    # def add_edges(self, add):
+    #     '''
+    #
+    #     :param add:
+    #     :return:
+    #     '''
+    #     for e in add:
+    #         pass
+    #         # line = self.data['ax0']['lines'][e]
+    #         # self.plot['axes']['ax0'].lines.remove(line)
+    #         # del self.data['ax0']['lines'][e]
+    #
+    #     self.reposition_nodes(None)
+    #     self.reposition_edges()
+    #
+    #     self.plot['canvas'].draw_idle()
+
+    def step(self):
+        rmv, add = self.graph.step()
+        self.remove_edges(rmv)
+        self.resize_nodes(None)
+        self.recolor_nodes(None)
+        self.relabel_nodes(None)
+        # self.add_edges(add)
+
+    def play(self):
+        if self.drawing:
+            self.drawing = False
+            self.buttons['play'].configure(text='Play')
+            if self.parent is not None:
+                self.parent.drawing = False
+                self.parent.buttons['play'].configure(text='Play')
+            # Stop animation
+        else:
+            self.drawing = True
+            self.buttons['play'].configure(text='Pause')
+            if self.parent is not None:
+                self.parent.drawing = True
+                self.parent.buttons['play'].configure(text='Pause')
+            # animate
