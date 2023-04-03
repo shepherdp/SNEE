@@ -5,6 +5,8 @@ import random
 
 from copy import deepcopy
 
+import matplotlib
+
 from helpers import ToolTip, TOOLTIP, DISTS, METRICS
 import networkx
 from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
@@ -73,10 +75,10 @@ class GUI:
                          'plot6data': tk.StringVar(),
                          'addnode': tk.StringVar(),
                          'delnode': tk.StringVar(),
-                         'addedgefrom': tk.StringVar(),
-                         'addedgeto': tk.StringVar(),
-                         'deledgefrom': tk.StringVar(),
-                         'deledgeto': tk.StringVar(),
+                         'addedgefrom': tk.IntVar(),
+                         'addedgeto': tk.IntVar(),
+                         'deledgefrom': tk.IntVar(),
+                         'deledgeto': tk.IntVar(),
                          'addedgelabel': tk.StringVar(),
                          'deledgelabel': tk.StringVar(),
                          'size': tk.DoubleVar(),
@@ -94,7 +96,9 @@ class GUI:
                     self.vars[key].set(PROPDEFAULTS[key])
 
             self.graph = None
-            self.data = {f'ax{i}': None for i in range(7)}
+            self.plotobjects = {f'ax{i}': None for i in range(7)}
+            dataoptions = ['betweenness', 'closeness', 'density', 'degree', 'clustering', 'diff. space', 'diff. avg.']
+            self.data = {metric: None for metric in dataoptions}
             self.drawing = False
 
         else:
@@ -102,8 +106,9 @@ class GUI:
             self.root.title('Command Center')
             self.vars = self.parent.vars
             self.graph = self.parent.graph
-            self.data = self.parent.data
+            self.plotobjects = self.parent.plotobjects
             self.drawing = self.parent.drawing
+            self.data = self.parent.data
 
         self.tooltips = {}
         self.frames = {}
@@ -196,9 +201,9 @@ class GUI:
 
         else:
             self.plot['fig'].clf()
-            if 'ax0' in self.data:
-                del self.data['ax0']
-            self.data['ax0'] = {}
+            if 'ax0' in self.plotobjects:
+                del self.plotobjects['ax0']
+            self.plotobjects['ax0'] = {}
 
         ncols = max(1, nsubplots)
         nrows = 3 if nsubplots == 0 else 4
@@ -225,7 +230,6 @@ class GUI:
             self.plot['axes'][ax].set_yticks([])
 
         self.plot['fig'].subplots_adjust(bottom=0.025, left=0.025, top=0.975, right=0.975, hspace=0.1, wspace=0.1)
-        # plt.autoscale()
         self.plot['canvas'].draw()
 
         self.set_dataplot_entries()
@@ -233,21 +237,15 @@ class GUI:
     def update_subplots(self, event):
 
         stored = {}
-        if 'ax0' in self.data and self.data['ax0'] is not None:
-            stored['ax0'] = {i: self.data['ax0'][i] for i in self.data['ax0']}
-            # stored['ax0'] = deepcopy(self.data['ax0'])
+        if 'ax0' in self.plotobjects and self.plotobjects['ax0'] is not None:
+            stored['ax0'] = {i: self.plotobjects['ax0'][i] for i in self.plotobjects['ax0']}
 
         self._init_plot(None)
 
-        print(self.data['ax0'])
-
         if 'ax0' in stored:
-            self.data['ax0'] = stored['ax0']
-
-        print(self.data['ax0'])
+            self.plotobjects['ax0'] = stored['ax0']
 
         self.create_plot()
-
 
     def _init_notebook(self):
 
@@ -268,6 +266,7 @@ class GUI:
         self.notebook['diffusion'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['edit'] = ttk.Frame(self.notebook['notebook'])
         self.notebook['command'] = ttk.Frame(self.notebook['notebook'])
+        self.notebook['output'] = ttk.Frame(self.notebook['notebook'])
 
         self.notebook['notebook'].add(self.notebook['parameters'], text='PRM')
         self.notebook['notebook'].add(self.notebook['animation'], text='ANI')
@@ -276,6 +275,7 @@ class GUI:
         self.notebook['notebook'].add(self.notebook['diffusion'], text='DIF')
         self.notebook['notebook'].add(self.notebook['edit'], text='EDT')
         self.notebook['notebook'].add(self.notebook['command'], text='CMD')
+        self.notebook['notebook'].add(self.notebook['output'], text='OUT')
 
         self.notebook['notebook'].grid(padx=5, pady=5, sticky=tk.N + tk.E + tk.S + tk.W)
 
@@ -438,8 +438,9 @@ class GUI:
             self._place_input_label(f'plot{i}data', 'dataplots', f'Plot {i}: ', row=i, col=0)
             if self.vars[f'plot{i}data'].get() == '':
                 self.vars[f'plot{i}data'].set('-')
-            self._place_input_optionmenu(f'plot{i}data', 'dataplots', self.vars[f'plot{i}data'].get(), METRICS, row=i, col=1, columnspan=3,
-                                         sticky='ew')
+            self._place_input_optionmenu(f'plot{i}data', 'dataplots', self.vars[f'plot{i}data'].get(),
+                                         ['betweenness', 'closeness', 'density', 'degree', 'clustering', 'diff. space', 'diff. avg.'],
+                                         row=i, col=1, columnspan=3, sticky='ew')
 
             self.labels[f'plot{i}data'].grid_forget()
             self.inputs[f'plot{i}data'].grid_forget()
@@ -531,19 +532,19 @@ class GUI:
         self._place_labelframe('edgeedit', self.notebook['edit'], 'Edges')
 
         self._place_input_label('fromlabel', 'edgeedit', 'From', row=0, col=1, sticky='ew')
-        self._place_input_label('fromlabel', 'edgeedit', 'To', row=0, col=2, sticky='ew')
-        self._place_input_label('fromlabel', 'edgeedit', 'Label', row=0, col=3, sticky='ew')
+        self._place_input_label('tolabel', 'edgeedit', 'To', row=0, col=2, sticky='ew')
+        self._place_input_label('labellabel', 'edgeedit', 'Label', row=0, col=3, sticky='ew')
         self._place_input_label('addedge', 'edgeedit', 'Add: ', row=1, col=0)
         self._place_input_entry('addedgefrom', 'edgeedit', row=1, col=1)
         self._place_input_entry('addedgeto', 'edgeedit', row=1, col=2)
         self._place_input_entry('addedgelabel', 'edgeedit', row=1, col=3)
-        self.buttons['addedge'] = tk.Button(self.frames['edgeedit'], text='+', width=5)
+        self.buttons['addedge'] = tk.Button(self.frames['edgeedit'], text='+', width=5, command=self.add_edge_from_panel)
         self.buttons['addedge'].grid(row=1, column=4, sticky='e')
         self._place_input_label('deledge', 'edgeedit', 'Del: ', row=2, col=0)
         self._place_input_entry('deledgefrom', 'edgeedit', row=2, col=1)
         self._place_input_entry('deledgeto', 'edgeedit', row=2, col=2)
         self._place_input_entry('deledgelabel', 'edgeedit', row=2, col=3)
-        self.buttons['deledge'] = tk.Button(self.frames['edgeedit'], text='-', width=5)
+        self.buttons['deledge'] = tk.Button(self.frames['edgeedit'], text='-', width=5, command=self.remove_edge_from_panel)
         self.buttons['deledge'].grid(row=2, column=4, sticky='e')
 
     def _place_labelframe(self, tag, parent, text):
@@ -759,8 +760,11 @@ class GUI:
                 print('No good')
                 return
         vals = {i: self.vars[i].get() for i in self.vars}
-        self.graph = SocialNetwork(n=vals['n'], selfloops=True, topology=vals['topology'],
-                                   p_disconnect=1., p_connect=0., thresh_disconnect=.5, num_dimensions=4)
+        self.graph = SocialNetwork(n=vals['n'], selfloops=self.vars['selfloops'].get(), topology=vals['topology'],
+                                   directed=vals['directed'], symmetric=vals['symmetric'],
+                                   multiedge=vals['multiedge'],
+                                   p_connect=.1, num_connections=2, thresh_connect=.5, num_dimensions=6,
+                                   p_disconnect=.75, thresh_disconnect=.5, saturation=.1, layout='spring')
         self.create_plot()
 
     def get_positions(self):
@@ -768,54 +772,79 @@ class GUI:
             return
         layout = self.vars['layout'].get()
         pos = None
-        if 'pos' in self.data['ax0']:
-            pos = self.data['ax0']['pos']
+        if 'pos' in self.plotobjects['ax0']:
+            pos = self.plotobjects['ax0']['pos']
         if self.vars['staticpos'].get():
             return pos
         if layout == 'spring':
-            return networkx.spring_layout(self.graph, pos=pos)
+            return networkx.spring_layout(self.graph.instance, pos=pos)
         elif layout == 'circle':
-            return networkx.circular_layout(self.graph, pos=pos)
+            return networkx.circular_layout(self.graph.instance)
         elif layout == 'spiral':
-            return networkx.spiral_layout(self.graph, pos=pos)
+            return networkx.spiral_layout(self.graph.instance)
         elif layout == 'shell':
-            return networkx.shell_layout(self.graph, pos=pos)
+            return networkx.shell_layout(self.graph.instance)
         elif layout == 'random':
-            return networkx.random_layout(self.graph, pos=pos)
+            return networkx.random_layout(self.graph.instance)
 
     def create_plot(self):
         if self.graph is None:
             return
-        if 'ax0' not in self.data:
-            self.data['ax0'] = {}
-        elif self.data['ax0'] is None:
-            self.data['ax0'] = {}
-        if 'pos' not in self.data['ax0']:
-            self.data['ax0']['pos'] = self.get_positions()
-        pos = self.data['ax0']['pos']
+        if 'ax0' not in self.plotobjects:
+            self.plotobjects['ax0'] = {}
+        elif self.plotobjects['ax0'] is None:
+            self.plotobjects['ax0'] = {}
+        if 'pos' not in self.plotobjects['ax0']:
+            self.plotobjects['ax0']['pos'] = self.get_positions()
+        pos = self.plotobjects['ax0']['pos']
         if self.graph.prop('selfloops'):
-            self.data['ax0']['selflooppos'] = {i: (pos[i][0], pos[i][1] + .05) for i in pos}
-        self.data['ax0']['lines'] = {}
+            self.plotobjects['ax0']['selflooppos'] = {i: (self.plotobjects['ax0']['pos'][i][0], self.plotobjects['ax0']['pos'][i][1] + .02)
+                                                      for i in self.plotobjects['ax0']['pos']}
+        self.plotobjects['ax0']['lines'] = {}
         alpha = self.vars['edgealpha'].get()
         sizes = self.get_node_sizes()
-        for e in self.graph.edges():
-            x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
-            if e[0] == e[1]:
-                continue
-            self.data['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
+
+        if self.graph.isgraph():
+            self.add_edges(self.graph.edges)
+            # for e in self.graph.edges():
+            #     if e[0] == e[1]:
+            #         continue
+            #     x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
+            #     self.plotobjects['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
+        elif self.graph.isdigraph():
+            self.add_edges(self.graph.edges)
+            # style = 'simple, head_length=8, head_width=4'
+            # for e in self.graph.edges():
+            #     if e[0] == e[1]:
+            #         continue
+            #     start, end = (pos[e[0]][0], pos[e[0]][1]), (pos[e[1]][0], pos[e[1]][1])
+            #     self.plotobjects['ax0']['lines'][e] = matplotlib.patches.FancyArrowPatch(start, end, arrowstyle=style)
+            #     self.plot['axes']['ax0'].add_patch(self.plotobjects['ax0']['lines'][e])
+
+        elif self.graph.ismultigraph():
+            self.add_edges(self.graph.edges)
+            # for e in self.graph.edges():
+            #     if e[0] == e[1]:
+            #         continue
+            #     x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
+            #     self.plotobjects['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
+
+        elif self.graph.ismultidigraph():
+            self.add_edges(self.graph.edges)
 
         if self.graph.prop('selfloops'):
-            self.data['ax0']['selfloops'] = self.plot['axes']['ax0'].scatter(*np.array(list(self.data['ax0']['selflooppos'].values())).T,
-                                                                             s=sizes,
+            news = sizes * 1.25
+            self.plotobjects['ax0']['selfloops'] = self.plot['axes']['ax0'].scatter(*np.array(list(self.plotobjects['ax0']['selflooppos'].values())).T,
+                                                                             s=news,
                                                                              facecolors='none', edgecolors='k',
                                                                              alpha=alpha, zorder=0)
 
-        self.data['ax0']['nodes'] = self.plot['axes']['ax0'].scatter(*np.array(list(pos.values())).T,
+        self.plotobjects['ax0']['nodes'] = self.plot['axes']['ax0'].scatter(*np.array(list(pos.values())).T,
                                                                      zorder=1, s=sizes)
-        self.data['ax0']['nodelabels'] = {}
+        self.plotobjects['ax0']['nodelabels'] = {}
         labels = self.get_node_labels()
         for node in self.graph.nodes:
-            self.data['ax0']['nodelabels'][node] = self.plot['axes']['ax0'].annotate(labels[node],
+            self.plotobjects['ax0']['nodelabels'][node] = self.plot['axes']['ax0'].annotate(labels[node],
                                                                                      (pos[node][0],
                                                                                       pos[node][1]),
                                                                                       zorder=2)
@@ -824,13 +853,17 @@ class GUI:
         self.realpha_nodes(None)
         self.recolor_nodes(None)
         self.realpha_edges(None)
+
+        self.plot['axes']['ax0'].set_xlim([-1.1, 1.1])
+        self.plot['axes']['ax0'].set_ylim([-1.1, 1.1])
         self.plot['canvas'].draw_idle()
 
     def clear(self):
         self.drawing = False
+        self.buttons['play'].configure(text='Play')
         del self.graph
         self.graph = None
-        self.data = {}
+        self.plotobjects = {}
         for i in range(7):
             if f'ax{i}' in self.plot['axes']:
                 del self.plot['axes'][f'ax{i}']
@@ -881,7 +914,7 @@ class GUI:
             dgr = networkx.degree_centrality(self.graph)
             return {node: round(dgr[node], 3) for node in self.graph}
         elif metric == 'diff. space':
-            return {node: str(self.graph.prop('diffusion_space')[node][1:-1]) for node in self.graph.nodes}
+            return {node: str(self.graph.prop('diffusion_space')[node])[1:-1] for node in self.graph.nodes}
 
     def get_node_colors(self):
         if self.graph is None:
@@ -908,8 +941,8 @@ class GUI:
         if self.graph is None:
             return
         labels = self.get_node_labels()
-        for node in self.data['ax0']['nodelabels']:
-            self.data['ax0']['nodelabels'][node].set_text(labels[node])
+        for node in self.plotobjects['ax0']['nodelabels']:
+            self.plotobjects['ax0']['nodelabels'][node].set_text(labels[node])
         self.plot['canvas'].draw_idle()
 
     def resize_nodes(self, event):
@@ -917,58 +950,72 @@ class GUI:
             return
         s = self.get_node_sizes()
         if self.graph.prop('selfloops'):
-            self.data['ax0']['selfloops'].set_sizes(s)
-        self.data['ax0']['nodes'].set_sizes(s)
+            news = s * 1.25
+            self.plotobjects['ax0']['selfloops'].set_sizes(news)
+            # self.plotobjects['ax0']['selfloops'].set_sizes(s)
+        self.plotobjects['ax0']['nodes'].set_sizes(s)
         self.plot['canvas'].draw_idle()
 
     def realpha_nodes(self, event):
         if self.graph is None:
             return
-        self.data['ax0']['nodes'].set_alpha(self.vars['nodealpha'].get())
+        self.plotobjects['ax0']['nodes'].set_alpha(self.vars['nodealpha'].get())
         self.plot['canvas'].draw_idle()
 
     def recolor_nodes(self, event):
         if self.graph is None:
             return
-        self.data['ax0']['nodes'].set_color(self.get_node_colors().values())
+        self.plotobjects['ax0']['nodes'].set_color(self.get_node_colors().values())
         self.plot['canvas'].draw_idle()
 
     def reposition_nodes(self, event):
         if self.graph is None:
             return
-        self.data['ax0']['pos'] = self.get_positions()
-        pos = np.array(list(self.data['ax0']['pos'].values())).T
-        self.data['ax0']['nodes'].set_offsets(np.c_[pos[0], pos[1]])
+        self.plotobjects['ax0']['pos'] = self.get_positions()
+        pos = np.array(list(self.plotobjects['ax0']['pos'].values())).T
+        self.plotobjects['ax0']['nodes'].set_offsets(np.c_[pos[0], pos[1]])
         if self.graph.prop('selfloops'):
-            self.data['ax0']['selflooppos'] = {i: (self.data['ax0']['pos'][i][0], self.data['ax0']['pos'][i][1] + .05)
-                                               for i in self.data['ax0']['pos']}
-            selflooppos = np.array(list(self.data['ax0']['selflooppos'].values())).T
-            self.data['ax0']['selfloops'].set_offsets(np.c_[selflooppos[0], selflooppos[1]])
-        for node in self.data['ax0']['nodelabels']:
-            self.data['ax0']['nodelabels'][node].set_position((pos[0][node], pos[1][node]))
+            self.plotobjects['ax0']['selflooppos'] = {i: (self.plotobjects['ax0']['pos'][i][0], self.plotobjects['ax0']['pos'][i][1] + .02)
+                                               for i in self.plotobjects['ax0']['pos']}
+            selflooppos = np.array(list(self.plotobjects['ax0']['selflooppos'].values())).T
+            self.plotobjects['ax0']['selfloops'].set_offsets(np.c_[selflooppos[0], selflooppos[1]])
+        for node in self.plotobjects['ax0']['nodelabels']:
+            self.plotobjects['ax0']['nodelabels'][node].set_position((pos[0][node], pos[1][node]))
         self.realpha_nodes(None)
         self.realpha_edges(None)
-        self.plot['canvas'].draw_idle()
+        self.reposition_edges()
+        # self.plot['canvas'].draw_idle()
 
     def realpha_edges(self, event):
         if self.graph is None:
             return
         alpha = self.vars['edgealpha'].get()
-        for line in self.data['ax0']['lines']:
-            self.data['ax0']['lines'][line].set_alpha(alpha)
+        for line in self.plotobjects['ax0']['lines']:
+            self.plotobjects['ax0']['lines'][line].set_alpha(alpha)
         if self.graph.prop('selfloops'):
-            self.data['ax0']['selfloops'].set_alpha(self.vars['edgealpha'].get())
+            self.plotobjects['ax0']['selfloops'].set_alpha(self.vars['edgealpha'].get())
         self.plot['canvas'].draw_idle()
+
+    def get_edge_angles(self, numedges):
+        if numedges == 1:
+            return [0.]
+        return np.linspace(-.3, .3, numedges)
 
     def reposition_edges(self):
         if self.graph is None:
             return
-        pos = np.array(list(self.data['ax0']['pos'].values())).T
+        pos = np.array(list(self.plotobjects['ax0']['pos'].values())).T
         alpha = self.vars['edgealpha'].get()
-        for line in self.data['ax0']['lines'].keys():
-            self.data['ax0']['lines'][line].set_xdata([pos[0][line[0]], pos[0][line[1]]])
-            self.data['ax0']['lines'][line].set_ydata([pos[1][line[0]], pos[1][line[1]]])
-            self.data['ax0']['lines'][line].set_alpha(alpha)
+        lines = self.plotobjects['ax0']['lines'].values()
+        for line in self.plotobjects['ax0']['lines'].keys():
+            if self.graph.isgraph():
+                self.plotobjects['ax0']['lines'][line].set_xdata([pos[0][line[0]], pos[0][line[1]]])
+                self.plotobjects['ax0']['lines'][line].set_ydata([pos[1][line[0]], pos[1][line[1]]])
+            elif self.graph.isdigraph() or self.graph.ismultigraph() or self.graph.ismultidigraph():
+                start = (pos[0][line[0]], pos[1][line[0]])
+                end = (pos[0][line[1]], pos[1][line[1]])
+                self.plotobjects['ax0']['lines'][line].set_positions(start, end)
+            self.plotobjects['ax0']['lines'][line].set_alpha(alpha)
 
 
     def update_layout_handler(self, event):
@@ -986,45 +1033,292 @@ class GUI:
         :param rmv:
         :return:
         '''
+        if rmv is None:
+            return
         for e in rmv:
-            line = self.data['ax0']['lines'][e]
-            self.plot['axes']['ax0'].lines.remove(line)
-            del self.data['ax0']['lines'][e]
+            if self.graph.isgraph():
+                line = self.plotobjects['ax0']['lines'][e]
+                self.plot['axes']['ax0'].lines.remove(line)
+                del self.plotobjects['ax0']['lines'][e]
+            elif self.graph.isdigraph():
+                line = self.plotobjects['ax0']['lines'][e]
+                self.plot['axes']['ax0'].patches.remove(line)
+                del self.plotobjects['ax0']['lines'][e]
+            elif self.graph.ismultigraph():
+                if e[2] == None:
+                    lines = [self.plotobjects['ax0']['lines'][key] for key in self.plotobjects['ax0']['lines'] if
+                             key[0] == e[0] and key[1] == e[1]]
+                else:
+                    lines = [self.plotobjects['ax0']['lines'][e]]
+                    for line in lines:
+                        self.plot['axes']['ax0'].patches.remove(line)
+                    del self.plotobjects['ax0']['lines'][e]
+                    self.reangle_edges_between(e[0], e[1])
+            elif self.graph.ismultidigraph():
+                if e[2] == None:
+                    lines = {key: self.plotobjects['ax0']['lines'][key] for key in self.plotobjects['ax0']['lines'] if
+                             key[0] == e[0] and key[1] == e[1]}
+                    for line in lines:
+                        self.plot['axes']['ax0'].patches.remove(lines[line])
+                        del self.plotobjects['ax0']['lines'][line]
+                else:
+                    lines = [self.plotobjects['ax0']['lines'][e]]
+                    for line in lines:
+                        self.plot['axes']['ax0'].patches.remove(line)
+                    del self.plotobjects['ax0']['lines'][e]
+                self.reangle_edges_between(e[0], e[1])
 
+    def add_edges(self, add):
+        '''
+
+        :param add:
+        :return:
+        '''
+        pos = self.plotobjects['ax0']['pos']
+        alpha = self.vars['edgealpha'].get()
+        if add is None:
+            return
+        if self.graph.isgraph():
+            for e in add:
+                if e[0] == e[1]:
+                    continue
+                x, y = [pos[e[0]][0], pos[e[1]][0]], [pos[e[0]][1], pos[e[1]][1]]
+                self.plotobjects['ax0']['lines'][e], = self.plot['axes']['ax0'].plot(x, y, 'k', alpha=alpha, zorder=0)
+        elif self.graph.isdigraph():
+            for e in add:
+                if e[0] == e[1]:
+                    continue
+                style = 'simple, head_length=8, head_width=4'
+                start, end = (pos[e[0]][0], pos[e[0]][1]), (pos[e[1]][0], pos[e[1]][1])
+                self.plotobjects['ax0']['lines'][e] = matplotlib.patches.FancyArrowPatch(start, end, arrowstyle=style)
+                self.plot['axes']['ax0'].add_patch(self.plotobjects['ax0']['lines'][e])
+
+        elif self.graph.ismultigraph():
+            style = 'simple, tail_width=0.5, head_width=0'
+            from_nodes = set([i[0] for i in add])
+            for node in from_nodes:
+                dests = set([i[1] for i in add if i[0] == node])
+                for dest in dests:
+                    start, end = (pos[node][0], pos[node][1]), (pos[dest][0], pos[dest][1])
+                    myedges = [e for e in add if e[0] == node and e[1] == dest]
+                    for e in myedges:
+                        self.plotobjects['ax0']['lines'][e] = matplotlib.patches.FancyArrowPatch(start, end, arrowstyle=style)
+                        self.plot['axes']['ax0'].add_patch(self.plotobjects['ax0']['lines'][e])
+                    self.reangle_edges_between(node, dest)
+        elif self.graph.ismultidigraph():
+            style = 'simple, head_length=8, head_width=4'
+            from_nodes = set([i[0] for i in add])
+            for node in from_nodes:
+                dests = set([i[1] for i in add if i[0] == node])
+                for dest in dests:
+                    start, end = (pos[node][0], pos[node][1]), (pos[dest][0], pos[dest][1])
+                    myedges = [e for e in add if e[0] == node and e[1] == dest]
+                    existing = [key for key in self.plotobjects['ax0']['lines'] if (key[0] == node and key[1] == dest) or
+                                (key[1] == node and key[0] == dest)]
+                    num = len(myedges) + len(existing)
+                    angles = self.get_edge_angles(num)
+                    for key, angle in zip(existing, angles[:len(existing)]):
+                        if key[0] == node and key[1] == dest:
+                            myangle = angle
+                        elif key[1] == node and key[0] == dest:
+                            myangle = -angle
+                        self.plotobjects['ax0']['lines'][key].set(connectionstyle=f'arc3,rad={myangle}')
+                    for e, angle in zip(myedges, angles[len(existing):]):
+                        if e[0] == node and e[1] == dest:
+                            myangle = angle
+                        elif e[1] == node and e[0] == dest:
+                            myangle = -angle
+                        self.plotobjects['ax0']['lines'][e] = matplotlib.patches.FancyArrowPatch(start, end,
+                                                                                                 arrowstyle=style,
+                                                                                                 connectionstyle=f'arc3,rad={myangle}')
+                        self.plot['axes']['ax0'].add_patch(self.plotobjects['ax0']['lines'][e])
+
+    def reangle_edges_between(self, u, v):
+
+        edges = []
+        if self.graph.ismultigraph():
+            edges = [key for key in self.plotobjects['ax0']['lines'] if key[0] == u and key[1] == v]
+        elif self.graph.ismultidigraph():
+            edges = [key for key in self.plotobjects['ax0']['lines'] if ((key[0] == u and key[1] == v) or
+                                                                         (key[0] == v and key[1] == u))]
+        num = len(edges)
+        angles = self.get_edge_angles(num)
+        for e, angle in zip(edges, angles):
+            self.plotobjects['ax0']['lines'][e].set(connectionstyle=f'arc3,rad={angle}')
+
+    def add_edge_from_panel(self):
+        '''
+        addedgefrom
+        addedgeto
+        addedgelabel
+        :return:
+        '''
+        if self.graph is None:
+            return
+        fromnode = self.vars['addedgefrom'].get()
+        tonode = self.vars['addedgeto'].get()
+        label = self.vars['addedgelabel'].get()
+        if fromnode not in self.graph.nodes:
+            return
+        if tonode not in self.graph.nodes:
+            return
+        if self.graph.isgraph() or self.graph.ismultigraph():
+            if fromnode == tonode:
+                return
+            if fromnode > tonode:
+                temp = fromnode
+                fromnode = tonode
+                tonode = temp
+        if self.graph.isgraph() or self.graph.isdigraph():
+            if (fromnode, tonode) in self.graph.edges:
+                return
+        elif self.graph.ismultigraph() or self.graph.ismultidigraph():
+            if label == '':
+                label = None
+            if label is not None:
+                if (fromnode, tonode, label) in self.graph.edges:
+                    return
+        edges = self.graph.connect(fromnode, tonode, label)
+        self.add_edges(edges)
         self.reposition_nodes(None)
-        self.reposition_edges()
-
-        self.plot['canvas'].draw_idle()
-
-    # def add_edges(self, add):
-    #     '''
-    #
-    #     :param add:
-    #     :return:
-    #     '''
-    #     for e in add:
-    #         pass
-    #         # line = self.data['ax0']['lines'][e]
-    #         # self.plot['axes']['ax0'].lines.remove(line)
-    #         # del self.data['ax0']['lines'][e]
-    #
-    #     self.reposition_nodes(None)
-    #     self.reposition_edges()
-    #
-    #     self.plot['canvas'].draw_idle()
-
-    def step(self):
-        rmv, add = self.graph.step()
-        self.remove_edges(rmv)
         self.resize_nodes(None)
         self.recolor_nodes(None)
         self.relabel_nodes(None)
-        # self.add_edges(add)
+        self.plot['canvas'].draw_idle()
+        # if self.graph.ismultigraph() or self.graph.ismultidigraph():
+        #     label = None
+
+    def remove_edge_from_panel(self):
+        '''
+        deledgefrom
+        deledgeto
+        deledgelabel
+        :return:
+        '''
+        if self.graph is None:
+            return
+        fromnode = self.vars['deledgefrom'].get()
+        tonode = self.vars['deledgeto'].get()
+        label = self.vars['deledgelabel'].get()
+        if fromnode not in self.graph.nodes:
+            return
+        if tonode not in self.graph.nodes:
+            return
+        if self.graph.isgraph() or self.graph.ismultigraph():
+            if fromnode == tonode:
+                return
+            if fromnode > tonode:
+                temp = fromnode
+                fromnode = tonode
+                tonode = temp
+        if self.graph.isgraph() or self.graph.isdigraph():
+            if (fromnode, tonode) not in self.graph.edges:
+                return
+        elif self.graph.ismultigraph() or self.graph.ismultidigraph():
+            if tonode not in self.graph[fromnode]:
+                return
+        if label == '':
+            label = None
+
+        edges = self.graph.disconnect(fromnode, tonode, label)
+        self.remove_edges(edges)
+        self.reposition_nodes(None)
+        self.resize_nodes(None)
+        self.recolor_nodes(None)
+        self.relabel_nodes(None)
+        self.plot['canvas'].draw_idle()
+
+    def step(self):
+        self.collect_data()
+        self.update_subplot_data()
+        rmv, add = self.graph.step()
+        self.remove_edges(rmv)
+        self.add_edges(add)
+
+        self.reposition_nodes(None)
+        self.resize_nodes(None)
+        self.recolor_nodes(None)
+        self.relabel_nodes(None)
+
+        self.plot['canvas'].draw_idle()
+
+    def collect_data(self):
+        if 'axmetrics' not in self.data:
+            names = [f'plot{i}data' for i in range(1, 7)]
+            self.data['axmetrics'] = {i: self.vars[i].get() for i in names if self.vars[i].get() != '-'}
+            self.data['collecting'] = set([self.data['axmetrics'][i] for i in self.data['axmetrics']])
+        for metric in self.data['collecting']:
+            if metric not in self.data:
+                if metric in ['density']:
+                    self.data[metric] = []
+                else:
+                    self.data[metric] = {}
+            if self.data[metric] == None:
+                if metric in ['density']:
+                    self.data[metric] = []
+                else:
+                    self.data[metric] = {}
+            if metric == 'density':
+                self.data['density'].append(nx.density(self.graph))
+            elif metric == 'betweenness':
+                data = nx.betweenness_centrality(self.graph)
+                for key in data:
+                    if key not in self.data[metric]:
+                        self.data[metric][key] = [data[key]]
+                    else:
+                        self.data[metric][key].append(data[key])
+            elif metric == 'closeness':
+                data = nx.closeness_centrality(self.graph)
+                for key in data:
+                    if key not in self.data[metric]:
+                        self.data[metric][key] = [data[key]]
+                    else:
+                        self.data[metric][key].append(data[key])
+            elif metric == 'clustering':
+                data = nx.clustering(self.graph)
+                for key in data:
+                    if key not in self.data[metric]:
+                        self.data[metric][key] = [data[key]]
+                    else:
+                        self.data[metric][key].append(data[key])
+            elif metric == 'degree':
+                data = nx.degree_centrality(self.graph)
+                for key in data:
+                    if key not in self.data[metric]:
+                        self.data[metric][key] = [data[key]]
+                    else:
+                        self.data[metric][key].append(data[key])
+            elif metric == 'diff. space':
+                pass
+            elif metric == 'diff. avg.':
+                pass
+
+    def update_subplot_data(self):
+        nsubplots = self.vars['numplots'].get()
+        for i in range(1, nsubplots):
+            if f'plot{i}data' not in self.data['axmetrics']:
+                continue
+            if f'ax{i}' not in self.plotobjects:
+                self.plotobjects[f'ax{i}'] = None
+            if self.plotobjects[f'ax{i}'] is None:
+                if self.data['axmetrics'][f'plot{i}data'] == 'density':
+                    self.plotobjects[f'ax{i}'] = None
+                else:
+                    self.plotobjects[f'ax{i}'] = {}
+            if self.data['axmetrics'][f'plot{i}data'] == 'density':
+                data = self.data['density']
+                print('data: ', data)
+                if self.plotobjects[f'ax{i}'] is None:
+                    self.plotobjects[f'ax{i}'], = self.plot['axes'][f'ax{i}'].plot(range(len(data)), data, 'k', alpha=.5)
+                    self.plot['axes'][f'ax{i}'].set_ylim([0, 1])
+                else:
+                    self.plotobjects[f'ax{i}'].set_xdata(range(len(data)))
+                    self.plotobjects[f'ax{i}'].set_ydata(data)
+                    self.plot['axes'][f'ax{i}'].set_xlim([0, len(data)])
 
     def animate(self):
         if self.drawing:
             self.step()
-            self.plot['canvas'].draw_idle()
             # Speed goes 0 to 5
             speed = self.vars['speed'].get()
             wait = 1000 - (150 * speed)

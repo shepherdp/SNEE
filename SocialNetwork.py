@@ -48,7 +48,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'selfloops': TF,                # self-loops included?
               'saturation': PROB,             # average percent of the network each node is connected to
               'topology': ['-', 'complete', 'cycle', 'random',
-                           'scale free', 'small world', 'star'],
+                           'scale free', 'small world', 'star', 'barbell'],
 
               # used to govern edge weight distributions
               'weight_dist': DISTS,
@@ -551,6 +551,10 @@ class SocialNetwork:
         # Cycle or ring
         elif topology == 'cycle':
             edges = nx.cycle_graph(n).edges()
+
+        elif topology == 'barbell':
+            edges = nx.barbell_graph(int(n/2)-1, 1).edges()
+            print(edges)
 
         # Add generated edges to graph structure
         for (u, v) in edges:
@@ -1179,10 +1183,15 @@ class SocialNetwork:
 
         # Do not add the edge if it is a selfloop and those are not allowed
         if (u == v) and (not self.prop('selfloops')):
-            return
+            return []
 
         # Add edge with probability p
         if coin_flip(p):
+
+            if (not self.prop('directed')) and (u > v):
+                temp = u
+                u = v
+                v = temp
 
             # If the object is a MultiGraph or MultiDiGraph, connect a labeled multiedge
             if self.prop('multiedge'):
@@ -1191,6 +1200,7 @@ class SocialNetwork:
             # Otherwise, create an unlabeled edge
             else:
                 # Create the edge and add a weight based on the desired weighting scheme
+
                 ret.append((u, v))
                 self.add_edge(u, v, **kwargs)
                 if 'weight' not in kwargs:
@@ -1241,6 +1251,8 @@ class SocialNetwork:
                 self._generate_edge_weight(v, u, label)
             ret.append((v, u, label))
 
+        return ret
+
     def disconnect(self, u, v, label=None, p=1.):
         '''
         Remove an optionally labeled edge from u to v with probability p.
@@ -1258,6 +1270,11 @@ class SocialNetwork:
         # If the edge is a selfloop and selfloops must be maintained, return
         if (u == v) and (self.prop('selfloops')):
             return
+
+        if (not self.prop('directed')) and (u > v):
+            temp = u
+            u = v
+            v = temp
 
         # Remove the edge with probability p
         if coin_flip(p):
@@ -1308,6 +1325,8 @@ class SocialNetwork:
 
         # If there is a label provided, only remove the edge with that label
         if label is not None:
+            if (u, v, label) not in self.edges:
+                return
             ret.append((u, v, label))
             self.remove_edge(u, v, label)
 
@@ -1424,7 +1443,10 @@ class SocialNetwork:
         ret = []
         for k in range(self.prop('num_dimensions')):
             vec = [d[i][k] for i in d]
-            ret.append(sum(vec) / len(vec))
+            if not vec:
+                ret.append(0.)
+            else:
+                ret.append(sum(vec) / len(vec))
         return ret
 
     def weighted_average(self, d, w):
@@ -1466,17 +1488,21 @@ class SocialNetwork:
         for node in next_states:
             self.instance.graph['diffusion_space'][node] = next_states[node]
 
-    def reward(self, u, v):
+    def reward(self, u, v, raw=False):
         '''
         Calculate the reward node u gets from node v
 
         :param u: The receiving node
         :param v: The neighbor of the receiving node
+        :param raw: Whether to take masking and connectedness into account
         :return: reward value in the range [0, 1]
         '''
 
         # Get distance between u and v, taking masks into account
-        d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
+        if raw:
+            d = dist(self.prop('diffusion_space')[u], self.prop('diffusion_space')[v])
+        else:
+            d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
 
         # Get the % similarity that maximizes u's reward
         maxval = self.prop('agent_models')[self.prop('types')[u]]['sim_max']
@@ -1531,7 +1557,8 @@ class SocialNetwork:
         mynodes = self.get_n_random_nodes(self.prop('num_nodes_connect'))
         num_c = self.prop('num_connections')
         for node in mynodes:
-            possible = [i for i in allnodes if i not in self[node] and self.reward(node, i) >= self.prop('thresh_connect')]
+            possible = [i for i in allnodes if i not in self[node] and  i != node and
+                        self.reward(node, i) >= self.prop('thresh_connect')]
             random.shuffle(possible)
             possible = possible[:num_c]
             for c in possible:
@@ -1549,8 +1576,11 @@ class SocialNetwork:
         mynodes = self.get_n_random_nodes(self.prop('num_nodes_disconnect'))
         num_d = self.prop('num_disconnections')
         for node in mynodes:
-            myedges = [e for e in self.edges if e[0] == node]
-            possible = [j for (i, j) in myedges if self.reward(node, j) < self.prop('thresh_disconnect') and j != node]
+            if self.isgraph() or self.ismultigraph():
+                nbrs = self.neighbors(node)
+            else:
+                nbrs = self.successors(node)
+            possible = [j for j in nbrs if self.reward(node, j, raw=True) < self.prop('thresh_disconnect') and j != node]
             random.shuffle(possible)
             possible = sorted(possible[:num_d])
             for c in possible:
