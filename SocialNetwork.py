@@ -85,7 +85,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'normalize': TF,
               'distance': ['hamming', 'euclidean', 'cosine'],
               'layout': ['spring', 'circle', 'spiral', 'random', 'shell'],
-              'max_influencers': POSNUM,
+              'num_influencers': POSNUM,
               'num_node_updates': POSNUM,
               'update_method': ['average', 'weighted average', 'transmission', 'majority', 'voter', 'qvoter'],
               'gravity': SYMBIN,
@@ -144,17 +144,17 @@ PROPDEFAULTS = {'n': 0,
                 'layout': 'spring',
                 'gravity': 1.,
                 'p_update': 1.,
-                'num_nodes_update': MAXINT_32,
                 'p_connect': 0.,
                 'p_disconnect': 0.,
+                'num_nodes_update': MAXINT_32,
                 'num_nodes_connect': MAXINT_32,
                 'num_nodes_disconnect': MAXINT_32,
                 'num_connections': MAXINT_32,
                 'num_disconnections': MAXINT_32,
+                'num_influencers': MAXINT_32,
                 'thresh_connect': 0,
                 'thresh_disconnect': 1,
                 'update_method': 'average',
-                'max_influencers': MAXINT_32,
                 }
 
 class SocialNetwork:
@@ -1132,10 +1132,10 @@ class SocialNetwork:
             nbrs = {nbr: self.get_view(u, nbr) for nbr in nbrs if self.reward(u, nbr) >= (1 - self.prop('confidence')[u])
                     or u == nbr}
 
-        if self.prop('max_influencers') > len(nbrs):
+        if self.prop('num_influencers') > len(nbrs):
             num_influencers = len(nbrs)
         else:
-            num_influencers = min(self.prop('max_influencers'), len(nbrs))
+            num_influencers = min(self.prop('num_influencers'), len(nbrs))
 
         nbrkeys = [key for key in nbrs if key != u]
         random.shuffle(nbrkeys)
@@ -1484,7 +1484,7 @@ class SocialNetwork:
                 if upd == 'average':
                     next_states[node] = self.nextstate_average(node)
                 elif upd == 'weighted average':
-                    next_states[node] = self.nextstate_average(node, weighted=True)
+                    next_states[node] = self.nextstate_average(node)
         for node in next_states:
             self.instance.graph['diffusion_space'][node] = next_states[node]
 
