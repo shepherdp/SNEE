@@ -215,6 +215,8 @@ class SocialNetwork:
         self._load_agent_models()
         self._init_agent_types()
 
+        # print(kwargs)
+
     def __getattr__(self, name):
         '''
         General method to call base-class versions of methods when none exist for this class.
@@ -554,7 +556,6 @@ class SocialNetwork:
 
         elif topology == 'barbell':
             edges = nx.barbell_graph(int(n/2)-1, 1).edges()
-            print(edges)
 
         # Add generated edges to graph structure
         for (u, v) in edges:
@@ -752,11 +753,12 @@ class SocialNetwork:
 
         # If diffusion space is binary OR it is continuous but needs to be initialized at maximal and minimal values,
         # set all entries to -1 or 1.
-        if self.prop('dimensions') == 'binary' or self.prop('initialize_at_extremes'):
+        if self.prop('dimensions') == 'binary' or (self.prop('initialize_at_extremes') and
+                                                   self.prop('dimensions') == 'continuous'):
             for i in range(k):
-                vec = [1. for j in range(n // 2)] + [-1. for j in range(n // 2)]
+                vec = [1 for j in range(n // 2)] + [-1 for j in range(n // 2)]
                 while len(vec) < n:
-                    vec.append(random.choice([-1., 1.]))
+                    vec.append(random.choice([-1, 1]))
                 random.shuffle(vec)
                 matrix.append(vec)
 
@@ -764,6 +766,9 @@ class SocialNetwork:
         elif self.prop('dimensions') == 'continuous':
             matrix = [[2 * rnd.random() - 1 for j in range(n)]
                       for i in range(k)]
+
+        elif self.prop('dimensions') == 'categorical':
+            matrix = self._init_transmission_values()
 
         matrix = np.array(matrix).T
 
@@ -795,6 +800,48 @@ class SocialNetwork:
         for node in mynodes:
             if self.prop('selfloops'):
                 self.instance.graph['masks'][node][node] = [1 for d in range(k)]
+
+    def _init_transmission_values(self):
+        n = self.number_of_nodes()
+        K = self.prop('num_dimensions')
+        if not self._has_property('category_dist'):
+            self.prop(category_dist={'': 1.})
+
+        d = self.prop('category_dist')
+
+        # Make sure type distribution sums to 1
+        if abs(sum([d[key] for key in d]) - 1.) > .000001:
+            raise InvalidPropertyError('Agent type proportions must sum to 1.')
+
+        matrix = []
+        for k in range(K):
+            vec = []
+            max_num = 0
+            max_t = ''
+            nums = {}
+
+            for t in d:
+                nums[t] = int(d[t] * n)
+
+                # This is just to correct any off-by-ones when we get done filling the vector.
+                if nums[t] >= max_num:
+                    max_num = nums[t]
+                    max_t = t
+
+                # Append nums[t] copies of this category's string representation to the vector.
+                for i in range(nums[t]):
+                    vec.append(t)
+
+            # Make sure that the rounding above didn't leave us short an element.
+            while len(vec) < n:
+                nums[max_t] += 1
+                vec.append(max_t)
+
+            # Randomly shuffle values.
+            rnd.shuffle(vec)
+            matrix.append(vec)
+
+        return matrix
 
     def _init_agent_types(self):
         """
@@ -1145,7 +1192,7 @@ class SocialNetwork:
 
         return nbrs
 
-    def get_local_average(self, u, weighted=True):
+    def get_local_average(self, u, weighted=False):
         """
 
         :param u: The node whose neighborhood should be averaged
@@ -1366,7 +1413,19 @@ class SocialNetwork:
         :param u: The node to update
         :return: None
         '''
-        pass
+        myvals = self.prop('diffusion_space')[u]
+        K = self.prop('num_dimensions')
+        next_state = []
+        nbrs = self.get_influencers(u)
+
+        # Iterate over each dimension
+        for k in range(K):
+            curr = myvals[k]
+            nbrvals = [nbrs[nbr][k] for nbr in nbrs]
+            if all([i == nbrvals[0] for i in nbrvals]):
+                curr = nbrvals[0]
+            next_state.append(curr)
+        return next_state
 
     def nextstate_majority(self, u):
         '''
@@ -1374,7 +1433,27 @@ class SocialNetwork:
         :param u: The node to update
         :return: None
         '''
-        pass
+        myvals = self.prop('diffusion_space')[u]
+        K = self.prop('num_dimensions')
+        next_state = []
+        nbrs = self.get_influencers(u)
+
+        # Iterate over each dimension
+        for k in range(K):
+            curr = myvals[k]
+            nbrvals = [nbrs[nbr][k] for nbr in nbrs]
+            valprops = {}
+            for val in nbrvals:
+                if val in valprops:
+                    valprops[val] += 1
+                else:
+                    valprops[val] = 1
+            total = len(list(valprops.keys()))
+            for val in valprops:
+                if valprops[val] / total > .5:
+                    curr = val
+            next_state.append(curr)
+        return next_state
 
     def nextstate_plurality(self, u):
         '''
@@ -1382,10 +1461,89 @@ class SocialNetwork:
         :param u: The node to update
         :return: None
         '''
-        pass
+        myvals = self.prop('diffusion_space')[u]
+        K = self.prop('num_dimensions')
+        next_state = []
+        nbrs = self.get_influencers(u)
+
+        for k in range(K):
+            curr = myvals[k]
+            nbrvals = [nbrs[nbr][k] for nbr in nbrs]
+            valprops = {}
+            for val in nbrvals:
+                if val in valprops:
+                    valprops[val] += 1
+                else:
+                    valprops[val] = 1
+            total = len(list(valprops.keys()))
+            maxval = None
+            maxprop = 0.
+            for val in valprops:
+                if valprops[val] / total > maxprop:
+                    maxval = val
+                    maxprop = valprops[val] / total
+            if maxval is None:
+                next_state.append(curr)
+            else:
+                next_state.append(maxval)
+        return next_state
+
+    def next_state_transmission(self, u):
+        '''
+
+        :param u:
+        :return:
+        '''
+        myvals = self.prop('diffusion_space')[u]
+        K = self.prop('num_dimensions')
+        next_state = []
+        nbrs = self.get_influencers(u)
+        model = self.prop('transmission_probs')
+
+        # Iterate over each dimension
+        for k in range(K):
+            curr = myvals[k]
+
+            # If there are no transitions from the current state, just append that state
+            if model[curr] == {}:
+                next_state.append(curr)
+            else:
+                changed = False
+
+                # Try to update states through contact first
+                if 'contact' in model[curr]:
+                    nbrvals = [nbrs[nbr][k] for nbr in nbrs]
+                    for i in nbrvals:
+                        if i not in model[curr]['contact']:
+                            continue
+                        cond, p = model[curr]['contact'][i]
+                        if coin_flip(p):
+                            next_state.append(cond)
+                            changed = True
+                            break
+
+                if changed:
+                    continue
+
+                # If no change is made through contact, check for automatic transitions
+                if 'auto' in model[curr]:
+                    for i in model[curr]['auto']:
+                        p = model[curr]['auto'][i]
+                        if coin_flip(p):
+                            next_state.append(i)
+                            changed = True
+                            break
+
+                if not changed:
+                    next_state.append(curr)
+
+        return next_state
 
     def nextstate_average(self, u):
-        local_avg = self.get_local_average(u)
+        if self.prop('update_method') == 'average':
+            local_avg = self.get_local_average(u)
+        elif self.prop('update_method') == 'wt. avg.':
+            local_avg = self.get_local_average(u, weighted=True)
         myvals = self.prop('diffusion_space')[u]
         K = self.prop('num_dimensions')
         next_state = []
@@ -1431,9 +1589,6 @@ class SocialNetwork:
                     ret.append(1)
             return ret
 
-        elif self.prop('dimensions') == 'categorical':
-            return []
-
     def simple_average(self, d):
         '''
 
@@ -1473,7 +1628,10 @@ class SocialNetwork:
             return []
         numupdates = min(self.prop('num_nodes_update'), self.prop('n'))
         mynodes = list(self.nodes())
-        random.shuffle(mynodes)
+        if numupdates < len(mynodes):
+            random.shuffle(mynodes)
+
+        # print('Before: ', self.prop('diffusion_space'))
 
         next_states = {}
         for i, node in enumerate(mynodes):
@@ -1481,12 +1639,21 @@ class SocialNetwork:
                 break
             if coin_flip(self.prop('p_update')):
                 upd = self.prop('update_method')
-                if upd == 'average':
+                if upd in ['average', 'wt. avg.']:
                     next_states[node] = self.nextstate_average(node)
-                elif upd == 'weighted average':
-                    next_states[node] = self.nextstate_average(node)
+                elif upd == 'voter':
+                    next_states[node] = self.nextstate_voter(node)
+                elif upd == 'majority':
+                    next_states[node] = self.nextstate_majority(node)
+                elif upd == 'plurality':
+                    next_states[node] = self.nextstate_plurality(node)
+                elif upd == 'transmission':
+                    next_states[node] = self.next_state_transmission(node)
+
         for node in next_states:
             self.instance.graph['diffusion_space'][node] = next_states[node]
+
+        # print('After: ', self.prop('diffusion_space'))
 
     def reward(self, u, v, raw=False):
         '''
@@ -1505,7 +1672,8 @@ class SocialNetwork:
             d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
 
         # Get the % similarity that maximizes u's reward
-        maxval = self.prop('agent_models')[self.prop('types')[u]]['sim_max']
+        # print(self.prop('agent_models'))
+        maxval = self.prop('agent_models')[self.prop('types')[u]]['max_sim']
 
         # If totally homophilic, return 1 - distance
         if maxval == 1.:

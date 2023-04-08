@@ -22,6 +22,8 @@ import numpy as np
 
 import matplotlib.cm as cm
 
+catcolors = ['b', 'yellow', 'red', 'green', 'purple', 'orange']
+
 ERRCOLOR = 'pink'
 WRNCOLOR = 'moccasin'
 OKCOLOR = 'palegreen'
@@ -582,7 +584,7 @@ class GUI:
         if self.vars['update_method'].get() == '':
             self.vars['update_method'].set('-')
         self._place_input_optionmenu('update_method', 'diffusion', self.vars['update_method'].get(),
-                                     ['-', 'voter', 'majority', 'average'],
+                                     ['-', 'voter', 'majority', 'average', 'wt. avg.', 'transmission'],
                                      row=4, col=1, columnspan=3, sticky='ew')
 
         self._place_input_label('distance', 'diffusion', 'Distance: ', row=1)
@@ -661,22 +663,6 @@ DIF tab.'''
 
                 self.set_trace(f'catname{3*i + j + 1}', self.trace_catname)
                 self.set_trace(f'catperc{3 * i + j + 1}', self.trace_catname)
-                # self._place_input_label('catname2', 'category_distribution', text='   ', row=i + 1, col=2)
-                # self._place_input_entry('catperc2', 'category_distribution', row=i + 1, col=3)
-                # self._place_input_label('catname3', 'category_distribution', text='   ', row=i + 1, col=4)
-                # self._place_input_entry('catperc3', 'category_distribution', row=i + 1, col=5)
-                # self._place_input_label('catname4', 'category_distribution', text='   ', row=i + 2, col=0)
-                # self._place_input_entry('catperc4', 'category_distribution', row=i + 2, col=1)
-                # self._place_input_label('catname5', 'category_distribution', text='   ', row=i + 2, col=2)
-                # self._place_input_entry('catperc5', 'category_distribution', row=i + 2, col=3)
-                # self._place_input_label('catname6', 'category_distribution', text='   ', row=i + 2, col=4)
-                # self._place_input_entry('catperc6', 'category_distribution', row=i + 2, col=5)
-                # self._place_input_label('catname7', 'category_distribution', text='   ', row=i + 3, col=0)
-                # self._place_input_entry('catperc7', 'category_distribution', row=i + 3, col=1)
-                # self._place_input_label('catname8', 'category_distribution', text='   ', row=i + 3, col=2)
-                # self._place_input_entry('catperc8', 'category_distribution', row=i + 3, col=3)
-                # self._place_input_label('catname9', 'category_distribution', text='   ', row=i + 3, col=4)
-                # self._place_input_entry('catperc9', 'category_distribution', row=i + 3, col=5)
 
     def _populate_edit_tab(self):
         self._place_labelframe('nodeedit', self.notebook['edit'], 'Nodes')
@@ -1118,6 +1104,7 @@ DIF tab.'''
             self.frames['transmission_wait'].pack_forget()
             self.frames['transmission'].pack(fill=tk.BOTH, padx=5)
             self.frames['category_distribution'].pack(fill=tk.BOTH, padx=5)
+            self.vars['update_method'].set('transmission')
         else:
             self.frames['transmission_msg'].pack_forget()
             self.frames['diffusion'].pack(fill=tk.BOTH, padx=5)
@@ -1172,7 +1159,7 @@ DIF tab.'''
         self.graph = SocialNetwork(**vals)
         self.create_plot()
         self.update_status('Graph constructed', OKCOLOR)
-        self.graph.prop()
+        # self.graph.prop()
 
     def get_positions(self):
         if self.graph is None:
@@ -1181,8 +1168,8 @@ DIF tab.'''
         pos = None
         if 'pos' in self.plotobjects['ax0']:
             pos = self.plotobjects['ax0']['pos']
-        if self.vars['staticpos'].get():
-            return pos
+            if self.vars['staticpos'].get():
+                return pos
         if layout == 'spring':
             return networkx.spring_layout(self.graph.instance, pos=pos)
         elif layout == 'circle':
@@ -1202,6 +1189,8 @@ DIF tab.'''
         elif self.plotobjects['ax0'] is None:
             self.plotobjects['ax0'] = {}
         if 'pos' not in self.plotobjects['ax0']:
+            self.plotobjects['ax0']['pos'] = self.get_positions()
+        elif self.plotobjects['ax0']['pos'] is None:
             self.plotobjects['ax0']['pos'] = self.get_positions()
         pos = self.plotobjects['ax0']['pos']
         if self.graph.prop('selfloops'):
@@ -1337,7 +1326,7 @@ DIF tab.'''
             dgr = networkx.degree_centrality(self.graph)
             return {node: round(dgr[node], 3) for node in self.graph}
         elif metric == 'diff. space':
-            return {node: str(self.graph.prop('diffusion_space')[node])[1:-1] for node in self.graph.nodes}
+            return {node: str(self.graph.prop('diffusion_space')[node]) for node in self.graph.nodes}
 
     def get_node_colors(self):
         if self.graph is None:
@@ -1346,7 +1335,6 @@ DIF tab.'''
         if metric == '-':
             return {node: 'b' for node in self.graph}
         elif metric == 'type':
-            print(self.graph.prop('agent_models'))
             return {node: self.graph.prop('agent_models')[self.graph.prop('types')[node]]['color'] for node in self.graph}
         elif metric == 'betweenness':
             btwn = networkx.betweenness_centrality(self.graph)
@@ -1360,6 +1348,16 @@ DIF tab.'''
         elif metric == 'degree':
             dgr = networkx.degree_centrality(self.graph)
             return {node: COLORS(dgr[node]) for node in self.graph}
+        elif metric == 'diff. space':
+            if self.graph.prop('dimensions') != 'categorical':
+                dif = self.graph.prop('diffusion_space')
+                return {node: COLORS((dif[node][0] + 1) / 2) for node in self.graph}
+            else:
+                if not self.graph._has_property('category_colors'):
+                    cats = list(self.graph.prop('category_dist').keys())
+                    self.graph.prop(category_colors={cat: catcolors[color] for color, cat in enumerate(cats)})
+                c = self.graph.prop('category_colors')
+                return {node: c[self.graph.prop('diffusion_space')[node][0]] for node in self.graph}
 
     def relabel_nodes(self, event):
         if self.graph is None:
@@ -1876,9 +1874,6 @@ DIF tab.'''
                         if cont not in transmission_probs[name]['contact']:
                             transmission_probs[name]['contact'][cont] = {}
                         transmission_probs[name]['contact'][cont] = (toname, prob)
-
-        print(category_dist)
-        print(transmission_probs)
 
         d = {}
         keys = ['n', 'directed', 'symmetric', 'multiedge', 'selfloops', 'normalize', 'topology', 'saturation',
