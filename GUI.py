@@ -10,7 +10,7 @@ import matplotlib
 
 from tkinter import colorchooser
 
-from helpers import ToolTip, TOOLTIP, DISTS, METRICS
+from helpers import ToolTip, TOOLTIP, DISTS, METRICS, xor
 import networkx
 from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
 
@@ -100,13 +100,17 @@ class GUI:
                          'num_influencers': tk.IntVar(),
                          }
 
-            for i in range(1, 10):
+            for i in range(1, 12):
                 self.vars[f't_from{i}'] = tk.StringVar()
                 self.vars[f't_to{i}'] = tk.StringVar()
                 self.vars[f't_cond{i}'] = tk.StringVar()
                 self.vars[f't_cond{i}'].set('auto')
                 self.vars[f't_cont{i}'] = tk.StringVar()
                 self.vars[f't_prob{i}'] = tk.DoubleVar()
+
+            for i in range(1, 10):
+                self.vars[f'catperc{i}'] = tk.DoubleVar()
+                self.vars[f'catname{i}'] = tk.StringVar()
 
             for i in range(1, 7):
                 self.vars[f'plot{i}data'] = tk.StringVar()
@@ -132,6 +136,7 @@ class GUI:
             self.drawing = False
             self.anim_id = None
             self.stepnum = 0
+            self.num_categories = 0
 
         else:
             self.root = tk.Toplevel(self.parent.root)
@@ -143,6 +148,7 @@ class GUI:
             self.anim_id = self.parent.anim_id
             self.data = self.parent.data
             self.stepnum = self.parent.stepnum
+            self.num_categories = self.parent.num_categories
 
         self.tooltips = {}
         self.frames = {}
@@ -609,7 +615,7 @@ DIF tab.'''
         self._place_labelframe('transmission', self.notebook['transmission'], 'Transmission Model')
 
         self._place_input_label('numtransitions', 'transmission', '# Rules: ', row=0, col=0, columnspan=2)
-        self._place_input_scale('numtransitions', 'transmission', 1, 9, 1, length=140, row=0, col=2, columnspan=3,
+        self._place_input_scale('numtransitions', 'transmission', 1, 11, 1, length=140, row=0, col=2, columnspan=3,
                                 command=self.set_transmission_entries)
 
         self._place_input_label('t_from_label', 'transmission', 'From', row=1, sticky='w')
@@ -618,14 +624,19 @@ DIF tab.'''
         self._place_input_label('t_contactwith_label', 'transmission', '', row=1, col=3, sticky='w')
         self._place_input_label('t_transmissionprob_label', 'transmission', 'Pr', row=1, col=4, sticky='w')
 
-        for i in range(1, 10):
+        for i in range(1, 12):
             self._place_input_entry(f't_from{i}', 'transmission', row=i + 1, col=0, width=4)
             self._place_input_entry(f't_to{i}', 'transmission', row=i + 1, col=1, width=4)
             self._place_input_optionmenu(f't_cond{i}', 'transmission', self.vars[f't_cond{i}'].get(),
                                          ['auto', 'contact'], row=i + 1, col=2,
-                                         columnspan=1, sticky='ew', command=self.realpha_edges)
+                                         columnspan=1, sticky='ew', command=self.category_update_callback)
             self._place_input_entry(f't_cont{i}', 'transmission', row=i + 1, col=3, width=4)
             self._place_input_entry(f't_prob{i}', 'transmission', row=i + 1, col=4, width=4)
+
+            self.set_trace(f't_from{i}', self.category_update_callback)
+            self.set_trace(f't_to{i}', self.category_update_callback)
+            self.set_trace(f't_cont{i}', self.category_update_callback)
+            self.set_trace(f't_prob{i}', self.check_transmission_probs)
 
             self.inputs[f't_from{i}'].grid_forget()
             self.inputs[f't_to{i}'].grid_forget()
@@ -634,7 +645,38 @@ DIF tab.'''
             self.inputs[f't_prob{i}'].grid_forget()
 
         self._place_labelframe('category_distribution', self.notebook['transmission'], 'Distribution')
-        self._place_input_label('category_distribution', 'category_distribution', msg, row=0, col=0)
+
+        self._place_input_label('namecollabel1', 'category_distribution', text='Val', row=0, col=0)
+        self._place_input_label('namecollabel2', 'category_distribution', text='Val', row=0, col=2)
+        self._place_input_label('namecollabel3', 'category_distribution', text='Val', row=0, col=4)
+        self._place_input_label('namecollabel1', 'category_distribution', text='%', row=0, col=1)
+        self._place_input_label('namecollabel1', 'category_distribution', text='%', row=0, col=3)
+        self._place_input_label('namecollabel1', 'category_distribution', text='%', row=0, col=5)
+
+        for i in range(3):
+            for j in range(3):
+                self._place_input_label(f'catname{3*i + j + 1}', 'category_distribution', text='   ', row=i + 1, col=2 * j,
+                                        var=self.vars[f'catname{3*i + j + 1}'])
+                self._place_input_entry(f'catperc{3*i + j + 1}', 'category_distribution', row=i + 1, col=2 * j + 1)
+
+                self.set_trace(f'catname{3*i + j + 1}', self.trace_catname)
+                self.set_trace(f'catperc{3 * i + j + 1}', self.trace_catname)
+                # self._place_input_label('catname2', 'category_distribution', text='   ', row=i + 1, col=2)
+                # self._place_input_entry('catperc2', 'category_distribution', row=i + 1, col=3)
+                # self._place_input_label('catname3', 'category_distribution', text='   ', row=i + 1, col=4)
+                # self._place_input_entry('catperc3', 'category_distribution', row=i + 1, col=5)
+                # self._place_input_label('catname4', 'category_distribution', text='   ', row=i + 2, col=0)
+                # self._place_input_entry('catperc4', 'category_distribution', row=i + 2, col=1)
+                # self._place_input_label('catname5', 'category_distribution', text='   ', row=i + 2, col=2)
+                # self._place_input_entry('catperc5', 'category_distribution', row=i + 2, col=3)
+                # self._place_input_label('catname6', 'category_distribution', text='   ', row=i + 2, col=4)
+                # self._place_input_entry('catperc6', 'category_distribution', row=i + 2, col=5)
+                # self._place_input_label('catname7', 'category_distribution', text='   ', row=i + 3, col=0)
+                # self._place_input_entry('catperc7', 'category_distribution', row=i + 3, col=1)
+                # self._place_input_label('catname8', 'category_distribution', text='   ', row=i + 3, col=2)
+                # self._place_input_entry('catperc8', 'category_distribution', row=i + 3, col=3)
+                # self._place_input_label('catname9', 'category_distribution', text='   ', row=i + 3, col=4)
+                # self._place_input_entry('catperc9', 'category_distribution', row=i + 3, col=5)
 
     def _populate_edit_tab(self):
         self._place_labelframe('nodeedit', self.notebook['edit'], 'Nodes')
@@ -759,7 +801,6 @@ DIF tab.'''
         self.vars['resistance1'].set(0.)
         self.vars['percent_type1'].set(1.)
 
-
     def _populate_output_tab(self):
         self._place_labelframe('metrics', self.notebook['output'], 'Data Collection')
 
@@ -769,6 +810,91 @@ DIF tab.'''
         self._place_input_checkbutton('collect_clustering', 'metrics', row=3, col=0, sticky='w', text='Clustering')
         self._place_input_checkbutton('collect_diffspace', 'metrics', row=4, col=0, sticky='w', text='Diffusion Space')
         self._place_input_checkbutton('collect_avgdiffspace', 'metrics', row=5, col=0, sticky='w', text='Averaged Diffusion Space')
+
+    def check_transmission_probs(self, *args):
+        for i in range(1, self.vars['numtransitions'].get() + 1):
+            try:
+                if self.vars[f't_prob{i}'].get() > 1:
+                    self.inputs[f't_prob{i}'].configure(bg=ERRCOLOR)
+                else:
+                    if self.inputs[f't_prob{i}'].cget('bg') == ERRCOLOR:
+                        self.reset_bgcolor([f't_prob{i}'])
+            except:
+                self.inputs[f't_prob{i}'].configure(bg=ERRCOLOR)
+
+    def category_update_callback(self, *args):
+        num = self.vars['numtransitions'].get()
+        old = []
+        oldnames = []
+        for i in range(9):
+            if self.vars[f'catname{i+1}'].get() != '':
+                try:
+                    old.append((self.vars[f'catname{i+1}'].get(), self.vars[f'catperc{i+1}'].get(), i+1))
+                except:
+                    old.append((self.vars[f'catname{i + 1}'].get(), 0., i + 1))
+                oldnames.append(self.vars[f'catname{i + 1}'].get())
+        newnames = set()
+        for i in range(1, num + 1):
+            fromname = self.vars[f't_from{i}'].get()
+            toname = self.vars[f't_to{i}'].get()
+            contname = self.vars[f't_cont{i}'].get()
+            newnames.add(fromname)
+            newnames.add(toname)
+            if xor(fromname == '', toname == ''):
+                self.inputs[f't_from{i}'].configure(bg=ERRCOLOR)
+                self.inputs[f't_to{i}'].configure(bg=ERRCOLOR)
+            else:
+                if self.inputs[f't_from{i}'].cget('bg') == ERRCOLOR or self.inputs[f't_to{i}'].cget('bg') == ERRCOLOR:
+                    self.reset_bgcolor([f't_from{i}', f't_to{i}'])
+            if self.vars[f't_cond{i}'].get() == 'contact' and contname == '':
+                self.inputs[f't_cont{i}'].configure(bg=ERRCOLOR)
+            else:
+                if self.inputs[f't_cont{i}'].cget('bg') == ERRCOLOR:
+                    self.reset_bgcolor([f't_cont{i}'])
+            if contname != '':
+                self.vars[f't_cond{i}'].set('contact')
+            newnames.add(contname)
+        if '' in newnames: newnames.remove('')
+        newnames = list(newnames)
+        new = []
+        for name, val, idx in old:
+            if name not in newnames:
+                self.vars[f'catname{i}'].set('')
+                self.vars[f'catperc{i}'].set(0.)
+                continue
+            newnames.remove(name)
+            new.append((name, val))
+        for name in newnames:
+            new.append((name, 0.))
+        for i in range(len(new)):
+            name, val = new[i]
+            self.vars[f'catname{i+1}'].set(name)
+            self.vars[f'catperc{i+1}'].set(val)
+            self.labels[f'catname{i+1}'].grid(row=(i // 3) + 1, column=2 * (i % 3))
+            self.inputs[f'catperc{i+1}'].grid(row=(i // 3) + 1, column=2 * (i % 3) + 1)
+        for i in range(len(new), 9):
+            self.labels[f'catname{i+1}'].grid_forget()
+            self.inputs[f'catperc{i+1}'].grid_forget()
+
+        self.num_categories = len(new)
+
+        self.trace_catname()
+
+    def trace_catname(self, *args):
+        names = [self.vars[f'catname{i}'].get() for i in range(1, self.num_categories + 1) if self.vars[f'catname{i}'].get() != '']
+        percs = []
+        for i, _ in enumerate(names):
+            try:
+                percs.append(self.vars[f'catperc{i+1}'].get())
+            except:
+                percs.append(0.)
+        total = sum(percs)
+        if total != 1.:
+            for i, _ in enumerate(names):
+                self.inputs[f'catperc{i+1}'].configure(bg=ERRCOLOR)
+        else:
+            for i, _ in enumerate(names):
+                self.reset_bgcolor([f'catperc{i+1}'])
 
     def _place_labelframe(self, tag, parent, text):
         self.frames[tag] = tk.LabelFrame(parent, text=text, padx=5, pady=3)
@@ -979,6 +1105,7 @@ DIF tab.'''
         self.set_dataplot_entries()
         self.update_model_callback()
         self.set_transmission_entries(None)
+        self.category_update_callback()
 
     def set_trace(self, tag, callback):
         self.vars[tag].trace('w', callback)
@@ -1021,12 +1148,14 @@ DIF tab.'''
             self.inputs[f't_cond{i}'].grid(row=i + 1, column=2)
             self.inputs[f't_cont{i}'].grid(row=i + 1, column=3)
             self.inputs[f't_prob{i}'].grid(row=i + 1, column=4)
-        for i in range(nrules + 1, 10):
+        for i in range(nrules + 1, 12):
             self.inputs[f't_from{i}'].grid_forget()
             self.inputs[f't_to{i}'].grid_forget()
             self.inputs[f't_cond{i}'].grid_forget()
             self.inputs[f't_cont{i}'].grid_forget()
             self.inputs[f't_prob{i}'].grid_forget()
+
+        self.category_update_callback()
 
     def set_tooltip(self, tag):
         self.tooltips[tag] = ToolTip(self.inputs[tag], TOOLTIP[tag]['normal'])
@@ -1721,6 +1850,36 @@ DIF tab.'''
             model['color'] = self.vars[f'typecolor{i}'].get()
             models[name] = model
 
+        # Get transmission model if needed
+        category_dist = {}
+        transmission_probs = {}
+        if self.vars['dimensions'].get() == 'categorical':
+            for i in range(1, self.num_categories + 1):
+                name = self.vars[f'catname{i}'].get()
+                category_dist[name] = self.vars[f'catperc{i}'].get()
+                transmission_probs[name] = {}
+                for t in range(1, self.vars['numtransitions'].get() + 1):
+                    if self.vars[f't_from{t}'].get() != name:
+                        continue
+                    if self.vars[f't_cond{t}'].get() == 'auto':
+                        if 'auto' not in transmission_probs[name]:
+                            transmission_probs[name]['auto'] = {}
+                        toname = self.vars[f't_to{t}'].get()
+                        prob = self.vars[f't_prob{t}'].get()
+                        transmission_probs[name]['auto'][toname] = prob
+                    elif self.vars[f't_cond{t}'].get() == 'contact':
+                        if 'contact' not in transmission_probs[name]:
+                            transmission_probs[name]['contact'] = {}
+                        toname = self.vars[f't_to{t}'].get()
+                        prob = self.vars[f't_prob{t}'].get()
+                        cont = self.vars[f't_cont{t}'].get()
+                        if cont not in transmission_probs[name]['contact']:
+                            transmission_probs[name]['contact'][cont] = {}
+                        transmission_probs[name]['contact'][cont] = (toname, prob)
+
+        print(category_dist)
+        print(transmission_probs)
+
         d = {}
         keys = ['n', 'directed', 'symmetric', 'multiedge', 'selfloops', 'normalize', 'topology', 'saturation',
                 'weight_dist', 'weight_min', 'weight_mean', 'weight_max', 'weight_stdev', 'weight_const',
@@ -1730,6 +1889,8 @@ DIF tab.'''
             d[key] = self.vars[key].get()
         d['type_dist'] = type_dist
         d['agent_models'] = models
+        d['category_dist'] = category_dist
+        d['transmission_probs'] = transmission_probs
 
         return d
 

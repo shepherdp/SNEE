@@ -57,6 +57,16 @@ def dist(vec1, vec2):
     distvec2 = [vec2[i] for i in range(len(vec2)) if vec2[i] != 0.]
     return distance.hamming(distvec1, distvec2)
 
+def xor(c1, c2):
+    '''
+    Returns the exclusive or of two truth values
+
+    :param c1: the first value
+    :param c2: the second value
+    :return: c1 XOR c2
+    '''
+    return (c1 or c2) and not (c1 and c2)
+
 # Helpful constants to check data types
 BOOL = type(bool())
 STR = type(str())
