@@ -28,7 +28,11 @@ ERRCOLOR = 'pink'
 WRNCOLOR = 'moccasin'
 OKCOLOR = 'palegreen'
 NRMCOLOR = 'white'
-COLORS = cm.viridis
+
+# COLORS = cm.viridis
+COLORS = cm.plasma
+# COLORS = cm.terrain
+# COLORS = cm.RdYlGn
 
 class GUI:
 
@@ -191,7 +195,7 @@ class GUI:
         self.frames['status'].grid(row=1, column=0, padx=5, pady=5, sticky='sew')
 
         if self.parent is None:
-            self.frames['plot'] = tk.LabelFrame(self.frames['window'], text='Plot', padx=5, pady=5)
+            self.frames['plot'] = tk.LabelFrame(self.frames['window'], text='Visualization Panel', padx=5, pady=5)
             self.frames['plot'].grid(row=0, column=1, rowspan=2, padx=5, pady=5, sticky='news')
 
         self.root.columnconfigure(0, weight=1)
@@ -487,12 +491,14 @@ class GUI:
 
         self._place_labelframe('record', self.notebook['animation'], 'Record Simulation')
         self._place_input_checkbutton('recording', 'record', row=0, col=0, sticky='w', text='Recording')
+        self.buttons['convert'] = tk.Button(self.frames['record'], text='Convert')
+        self.buttons['convert'].grid(row=0, column=3, pady=5, sticky='e')
 
     def _populate_plots_tab(self):
         self._place_labelframe('dataplots', self.notebook['plots'], 'Data Plots')
 
         self._place_input_label('numplots', 'dataplots', '# Plots: ', row=0, col=0)
-        self._place_input_scale('numplots', 'dataplots', 1, 7, 1, length=160, row=0, col=1, columnspan=2,
+        self._place_input_scale('numplots', 'dataplots', 1, 7, 1, length=140, row=0, col=1, columnspan=4,
                                 command=self.update_subplots)
         button_funcs = {1: self.choose_color_plot1,
                         2: self.choose_color_plot2,
@@ -584,7 +590,7 @@ class GUI:
         if self.vars['update_method'].get() == '':
             self.vars['update_method'].set('-')
         self._place_input_optionmenu('update_method', 'diffusion', self.vars['update_method'].get(),
-                                     ['-', 'voter', 'majority', 'average', 'wt. avg.', 'transmission'],
+                                     ['-', 'voter', 'majority', 'average', 'wt. avg.'],
                                      row=4, col=1, columnspan=3, sticky='ew')
 
         self._place_input_label('distance', 'diffusion', 'Distance: ', row=1)
@@ -1119,7 +1125,7 @@ DIF tab.'''
         for i in range(1, nsubplots):
             self.labels[f'plot{i}data'].grid(row=i, column=0)
             self.inputs[f'plot{i}data'].grid(row=i, column=1, columnspan=3, sticky='ew')
-            self.buttons[f'plot{i}color'].grid(row=i, column=3, pady=2, sticky='e')
+            self.buttons[f'plot{i}color'].grid(row=i, column=4, pady=2, sticky='e')
         for i in range(nsubplots, 7):
             self.labels[f'plot{i}data'].grid_forget()
             self.inputs[f'plot{i}data'].grid_forget()
@@ -1381,7 +1387,8 @@ DIF tab.'''
     def realpha_nodes(self, event):
         if self.graph is None:
             return
-        self.plotobjects['ax0']['nodes'].set_alpha(self.vars['nodealpha'].get())
+        alpha = self.vars['nodealpha'].get()
+        self.plotobjects['ax0']['nodes'].set_alpha(.1 + (alpha * .9))
         self.plot['canvas'].draw_idle()
 
     def recolor_nodes(self, event):
@@ -1412,10 +1419,15 @@ DIF tab.'''
         if self.graph is None:
             return
         alpha = self.vars['edgealpha'].get()
+        metric = self.vars['alphaedgesby'].get()
+        if metric == '-':
+            w = {e: 1 for e in self.plotobjects['ax0']['lines']}
+        elif metric == 'weight' and self.graph.prop('weight_dist') != '-':
+            w = self.graph.get_weights()
         for line in self.plotobjects['ax0']['lines']:
-            self.plotobjects['ax0']['lines'][line].set_alpha(alpha)
+            self.plotobjects['ax0']['lines'][line].set_alpha(.1 + (alpha * w[line] * .9))
         if self.graph.prop('selfloops'):
-            self.plotobjects['ax0']['selfloops'].set_alpha(self.vars['edgealpha'].get())
+            self.plotobjects['ax0']['selfloops'].set_alpha(.1 + (alpha * w[line] * .9))
         self.plot['canvas'].draw_idle()
 
     def get_edge_angles(self, numedges):
@@ -1774,11 +1786,16 @@ DIF tab.'''
                 data = None
             if data is not None:
                 if self.plotobjects[f'ax{i}'] in [None, {}]:
-                    color = self.vars[f'plot{i}color'].get()
+                    if self.vars['colornodesby'].get() == 'type':
+                        types = self.graph.prop('types')
+                        models = self.graph.prop('agent_models')
+                        colors = {key: models[types[key]]['color'] for key in data}
+                    else:
+                        colors = {key: self.vars[f'plot{i}color'].get() for key in data}
                     for key in data:
                         numobs = len(data[key]) - 1
                         self.plotobjects[f'ax{i}'][key], = self.plot['axes'][f'ax{i}'].plot(range(self.stepnum - numobs, self.stepnum + 1),
-                                                                                            data[key], color, alpha=.5)
+                                                                                            data[key], colors[key], alpha=.5)
                     self.plot['axes'][f'ax{i}'].set_ylim([0, 1])
                 else:
                     for key in data:
@@ -1793,7 +1810,7 @@ DIF tab.'''
             self.step()
             # Speed goes 0 to 5
             speed = self.vars['speed'].get()
-            wait = 1000 - (150 * speed)
+            wait = 1000 - (175 * speed)
             if self.parent is not None:
                 self.anim_id = self.root.after(wait, self.parent.animate)
             else:
@@ -1882,6 +1899,8 @@ DIF tab.'''
                 'update_method', 'distance']
         for key in keys:
             d[key] = self.vars[key].get()
+        if d['dimensions'] == 'categorical':
+            d['update_method'] == 'transmission'
         d['type_dist'] = type_dist
         d['agent_models'] = models
         d['category_dist'] = category_dist
