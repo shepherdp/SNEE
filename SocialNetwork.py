@@ -149,8 +149,8 @@ PROPDEFAULTS = {'n': 0,
                 'num_nodes_update': MAXINT_32,
                 'num_nodes_connect': MAXINT_32,
                 'num_nodes_disconnect': MAXINT_32,
-                'num_connections': MAXINT_32,
-                'num_disconnections': MAXINT_32,
+                'num_connections': 1,
+                'num_disconnections': 1,
                 'num_influencers': MAXINT_32,
                 'thresh_connect': 0,
                 'thresh_disconnect': 1,
@@ -948,7 +948,8 @@ class SocialNetwork:
         :param u: the node observing its neighborhood
         :return: a list containing u's view of each of its neighbors
         '''
-        return {v: self.get_view(u, v) for v in self[u]}
+        return {v: self.get_view(u, v) for v in self[u]} if not self.prop('directed') \
+            else {v: self.get_view(u, v) for v in self.predecessors(u)}
 
     def reset_view(self, u, v, visibility='hidden'):
         '''
@@ -1171,6 +1172,7 @@ class SocialNetwork:
         :return:
         '''
         nbrs = self.get_neighborhood_view(u)
+        # nbridxs = list(self.predecessors(u)) if self.prop('directed') else list(self.neighbors(u))
         if u in nbrs:
             del nbrs[u]
 
@@ -1632,14 +1634,15 @@ class SocialNetwork:
             random.shuffle(mynodes)
 
         # print('Before: ', self.prop('diffusion_space'))
-
+        upd = self.prop('update_method')
         next_states = {}
         for i, node in enumerate(mynodes):
             if i >= numupdates:
                 break
             if coin_flip(self.prop('p_update')):
-                upd = self.prop('update_method')
-                if upd in ['average', 'wt. avg.']:
+                if not self.get_influencers(node):
+                    next_states[node] = self.prop('diffusion_space')[node]
+                elif upd in ['average', 'wt. avg.']:
                     next_states[node] = self.nextstate_average(node)
                 elif upd == 'voter':
                     next_states[node] = self.nextstate_voter(node)
@@ -1712,6 +1715,16 @@ class SocialNetwork:
             warn(f'Layout {layout} not supported.  Defaulting to spiral.')
             pos = nx.spring_layout(self)
         return np.array(list(pos.values())).T if pos else None
+
+    def get_weights(self):
+        d = {}
+        if self.isgraph() or self.isdigraph():
+            for u, v in self.edges:
+                d[(u, v)] = self[u][v]['weight']
+        elif self.ismultigraph() or self.ismultidigraph():
+            for u, v, label in self.edges:
+                d[(u, v, label)] = self[u][v][label]['weight']
+        return d
 
     def get_connections(self):
         '''

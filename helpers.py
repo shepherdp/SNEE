@@ -67,6 +67,12 @@ def xor(c1, c2):
     '''
     return (c1 or c2) and not (c1 and c2)
 
+def sample(mylist, num):
+    try:
+        return rnd.sample(mylist, num)
+    except:
+        return rnd.sample(mylist, len(mylist))
+
 # Helpful constants to check data types
 BOOL = type(bool())
 STR = type(str())
