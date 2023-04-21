@@ -43,7 +43,7 @@ def coin_flip(p):
     '''
     return rnd.random() < p
 
-def dist(vec1, vec2):
+def dist(vec1, vec2, metric):
     """
     Extract visible dimensions from param:vec2 and compare them to param:vec1.
 
@@ -55,7 +55,12 @@ def dist(vec1, vec2):
     if not distvec1:
         return 0.
     distvec2 = [vec2[i] for i in range(len(vec2)) if vec2[i] != 0.]
-    return distance.hamming(distvec1, distvec2)
+    if metric == 'hamming':
+        return distance.hamming(distvec1, distvec2)
+    elif metric == 'euclidean':
+        return distance.euclidean(distvec1, distvec2)
+    elif metric == 'cosine':
+        return distance.cosine(distvec1, distvec2)
 
 def xor(c1, c2):
     '''
@@ -186,4 +191,21 @@ If true, self-edges cannot be deleted.  If false, they cannot be added.'''},
            'weight_max': {'normal': '''param \'weight_max\': (str) the maximum of the weight distribution; only applicable for weight_dist=\'normal\' or \'uniform\'.''',
                           'error': '''This value must be strictly greater than weight_min and (if applicable) weight_mean.'''},
            'normalize': {'normal': '''param \'normalize\': (bool) whether to normalize edge weights.'''},
+           'layout': {'normal': '''param \'layout\': (str) the layout algorithm determining the positions of nodes on the screen.'''},
+           'speed': {'normal': '''param \'speed\': (int) the speed of the animation.'''},
+           'staticpos': {'normal': '''param \'staticpos\': (bool) whether to let node positions change over time.'''},
+           'nodesize': {'normal': '''param \'nodesize\': (int) how much to scale the size of nodes by their current value.'''},
+           'nodealpha': {'normal': '''param \'nodealpha\': (float) the transparency of nodes.'''},
+           'sizenodesby': {'normal': '''param \'sizenodesby\': (str) the parameter by which to size nodes.'''},
+           'colornodesby': {'normal': '''param \'colornodesby\': (str) the parameter by which to color nodes.'''},
+           'labelnodesby': {'normal': '''param \'labelnodesby\': (str) the parameter by which to label nodes.'''},
+           'alphaedgesby': {'normal': '''param \'alphaedgesby\': (str) the parameter by which to size edges.'''},
+           'coloredgesby': {'normal': '''param \'coloredgesby\': (str) the parameter by which to color edges.'''},
+           'labeledgesby': {'normal': '''param \'labeledgesby\': (str) the parameter by which to label edges.'''},
+           'edgealpha': {'normal': '''param \'edgealpha\': (str) the factor by which to scale edge transparency.'''},
+           'numplots': {'normal': '''param \'numplots\': (int) the number of additional subplots.'''},
            }
+for i in range(1, 7):
+    TOOLTIP.update({f'plot{i}data': {'normal': f'''param \'plot{i}data\': (str) the metric to display on the current plot.'''},
+                    f'plot{i}color': {'normal': f'''param \'plot{i}color\': (str) the color to display the current metric on its plot.
+This setting is overridden if the parameter \'colornodesby\' = \'type\'.'''}})
