@@ -1,26 +1,19 @@
 # GUI Class
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
+import numpy as np
 import networkx as nx
+import tkinter as tk
+import tkinter.ttk as ttk
+
 import random
 import tkdial
 
-from copy import deepcopy
-
-import matplotlib
-
-from tkinter import colorchooser
-
-from helpers import ToolTip, TOOLTIP, DISTS, METRICS, xor
-import networkx
-from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
-
-import tkinter as tk
-import tkinter.ttk as ttk
 from matplotlib.backends.backend_tkagg import (FigureCanvasTkAgg, NavigationToolbar2Tk)
 from matplotlib.figure import Figure
-import numpy as np
 
-import matplotlib.cm as cm
+from helpers import ToolTip, TOOLTIP, DISTS, METRICS, xor
+from SocialNetwork import PROPDEFAULTS, PROPSELECT, SocialNetwork
 
 catcolors = ['b', 'yellow', 'red', 'green', 'purple', 'orange']
 
@@ -30,8 +23,8 @@ OKCOLOR = 'palegreen'
 NRMCOLOR = 'white'
 
 # COLORS = cm.viridis
-COLORS = cm.plasma
-# COLORS = cm.terrain
+# COLORS = cm.plasma
+COLORS = cm.terrain
 # COLORS = cm.RdYlGn
 
 class GUI:
@@ -182,6 +175,10 @@ class GUI:
             self.root.mainloop()
 
     def _init_panel_frames(self):
+        '''
+
+        :return:
+        '''
         if self.root:
             self.frames['window'] = tk.Frame(self.root, padx=5, pady=5)
         else:
@@ -212,7 +209,10 @@ class GUI:
             self.frames['notebook'].rowconfigure(0, weight=1)
 
     def _init_status(self):
+        '''
 
+        :return:
+        '''
         self._place_labelframe('buttons', self.frames['status'], '')
         self.buttons['construct'] = tk.Button(self.frames['buttons'], text='Construct', width=18, command=self.construct)
         self.buttons['construct'].grid(row=0, column=0, sticky='ew', padx=2, pady=1)
@@ -231,10 +231,15 @@ class GUI:
             self.buttons['popoff'] = tk.Button(self.frames['status'], text='Pop Off', command=self.popoff)
             self.buttons['popoff'].pack(side=tk.TOP, fill=tk.BOTH, expand=True, padx=6, pady=1)
 
-        self.labels['status'] = tk.Label(self.frames['status'], text="All good right now.")
+        self.labels['status'] = tk.Label(self.frames['status'], text='Ready', bg=OKCOLOR)
         self.labels['status'].pack(side=tk.TOP, fill=tk.BOTH, expand=True, pady=2, padx=6)
 
     def _init_plot(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         nsubplots = self.vars['numplots'].get() - 1
         if 'fig' not in self.plot:
             self.plot['fig'] = Figure(figsize=(7, 5), dpi=100)
@@ -276,13 +281,17 @@ class GUI:
             self.plot['axes'][ax].set_xticks([])
             self.plot['axes'][ax].set_yticks([])
 
-        self.plot['fig'].subplots_adjust(bottom=0.025, left=0.025, top=0.975, right=0.975, hspace=0.1, wspace=0.1)
+        self.plot['fig'].subplots_adjust(bottom=0.05, left=0.025, top=0.975, right=0.975, hspace=0.1, wspace=0.1)
         self.plot['canvas'].draw()
 
         self.set_dataplot_entries()
 
     def update_subplots(self, event):
+        '''
 
+        :param event:
+        :return:
+        '''
         stored = {}
         if 'ax0' in self.plotobjects:
             if self.plotobjects['ax0'] is not None:
@@ -305,7 +314,10 @@ class GUI:
         self.create_plot()
 
     def _init_notebook(self):
+        '''
 
+        :return:
+        '''
         if self.root:
             style = ttk.Style(self.root)
         else:
@@ -349,7 +361,10 @@ class GUI:
         self._populate_output_tab()
 
     def _populate_parameters_tab(self):
+        '''
 
+        :return:
+        '''
         self._place_labelframe('graph_structure', self.notebook['parameters'], 'Graph Structure')
 
         self._place_input_label('n', 'graph_structure', 'Nodes: ')
@@ -417,10 +432,15 @@ class GUI:
         self.set_tooltip('normalize')
 
     def _populate_animation_tab(self):
+        '''
+
+        :return:
+        '''
         self._place_labelframe('animation', self.notebook['animation'], 'Animation')
 
         self._place_input_label('speed', 'animation', 'Speed: ', row=1, col=0)
         self._place_input_scale('speed', 'animation', 0, 5, 1, length=150, row=1, col=1, columnspan=3)
+        self.set_tooltip('speed')
 
         self._place_input_label('layout', 'animation', 'Layout: ', row=0, col=0)
         if self.vars['layout'].get() == '':
@@ -428,13 +448,16 @@ class GUI:
         self._place_input_optionmenu('layout', 'animation', self.vars['layout'].get(),
                                      ['spring', 'circle', 'spiral', 'random', 'shell'], row=0, col=1, columnspan=2,
                                      sticky='ew', command=self.update_layout_handler)
+        self.set_tooltip('layout')
 
         self._place_labelframe('nodes', self.notebook['animation'], 'Nodes')
 
         self._place_input_checkbutton('staticpos', 'nodes', row=0, col=0, sticky='w', text='Fixed pos.')
+        self.set_tooltip('staticpos')
         self._place_input_label('nodesize', 'nodes', 'Size: ', row=0, col=1)
         self._place_input_scale('nodesize', 'nodes', 100, 700, 100, length=80, row=0, col=2, columnspan=2, sticky='ew',
                                 command=self.resize_nodes)
+        self.set_tooltip('nodesize')
         self._place_input_label('nodealpha', 'nodes', 'Alpha: ', row=1, col=0)
         if self.parent is not None:
             self.vars['nodealpha'].set(self.parent.vars['nodealpha'].get())
@@ -442,6 +465,7 @@ class GUI:
             self.vars['nodealpha'].set(1.)
         self._place_input_scale('nodealpha', 'nodes', 0, 1, .01, length=70, row=1, col=1, columnspan=2, sticky='ew',
                                 command=self.realpha_nodes)
+        self.set_tooltip('nodealpha')
         self._place_input_entry('nodealpha', 'nodes', row=1, col=3, sticky='e')
 
         self._place_input_label('labelnodesby', 'nodes', 'Label nodes: ', row=2, col=0)
@@ -461,6 +485,9 @@ class GUI:
         self._place_input_optionmenu('colornodesby', 'nodes', self.vars['colornodesby'].get(),
                                      ['-', 'type', 'diff. space'] + METRICS[1:], row=4, col=1, columnspan=3,
                                      command=self.recolor_nodes, sticky='ew')
+        self.set_tooltip('labelnodesby')
+        self.set_tooltip('sizenodesby')
+        self.set_tooltip('colornodesby')
 
         self._place_labelframe('edges', self.notebook['animation'], 'Edges')
 
@@ -471,6 +498,7 @@ class GUI:
             self.vars['edgealpha'].set(.2)
         self._place_input_scale('edgealpha', 'edges', 0, 1, .01, length=70, row=0, col=1, columnspan=2,
                                 command=self.realpha_edges)
+        self.set_tooltip('edgealpha')
         self._place_input_entry('edgealpha', 'edges', row=0, col=3)
 
         self._place_input_label('alphaedgesby', 'edges', 'Darken edges: ', row=1, col=0)
@@ -488,6 +516,9 @@ class GUI:
             self.vars['labeledgesby'].set('-')
         self._place_input_optionmenu('labeledgesby', 'edges', self.vars['labeledgesby'].get(), ['-', 'betweenness', 'weight', 'label'], row=4,
                                      col=1, columnspan=3, sticky='ew')
+        self.set_tooltip('alphaedgesby')
+        self.set_tooltip('labeledgesby')
+        self.set_tooltip('coloredgesby')
 
         self._place_labelframe('record', self.notebook['animation'], 'Record Simulation')
         self._place_input_checkbutton('recording', 'record', row=0, col=0, sticky='w', text='Recording')
@@ -495,11 +526,16 @@ class GUI:
         self.buttons['convert'].grid(row=0, column=3, pady=5, sticky='e')
 
     def _populate_plots_tab(self):
+        '''
+
+        :return:
+        '''
         self._place_labelframe('dataplots', self.notebook['plots'], 'Data Plots')
 
         self._place_input_label('numplots', 'dataplots', '# Plots: ', row=0, col=0)
         self._place_input_scale('numplots', 'dataplots', 1, 7, 1, length=140, row=0, col=1, columnspan=4,
                                 command=self.update_subplots)
+        self.set_tooltip('numplots')
         button_funcs = {1: self.choose_color_plot1,
                         2: self.choose_color_plot2,
                         3: self.choose_color_plot3,
@@ -514,6 +550,7 @@ class GUI:
                                          ['-', 'betweenness', 'closeness', 'density', 'degree', 'clustering',
                                           'diff. space', 'diff. avg.'], command=self.check_update_subplots,
                                          row=i, col=1, columnspan=3, sticky='ew')
+            self.set_tooltip(f'plot{i}data')
             if self.parent is not None:
                 color = self.parent.vars[f'plot{i}color'].get()
             else:
@@ -528,7 +565,10 @@ class GUI:
             self.buttons[f'plot{i}color'].grid_forget()
 
     def _populate_evolution_tab(self):
+        '''
 
+        :return:
+        '''
         self._place_labelframe('connect_dynamics', self.notebook['evolution'], 'Connection Dynamics')
 
         self._place_input_label('p_connect', 'connect_dynamics', 'Pr(+): ')
@@ -560,7 +600,10 @@ class GUI:
         self._place_input_entry('num_nodes_disconnect', 'disconnect_dynamics', row=3, col=2)
 
     def _populate_diffusion_tab(self):
+        '''
 
+        :return:
+        '''
         self._place_labelframe('parameters', self.notebook['diffusion'], 'Diffusion Parameters')
 
         self._place_input_label('num_dimensions', 'parameters', 'Dimensions: ')
@@ -610,7 +653,10 @@ See the TSM tab.'''
         self.set_trace('dimensions', self.update_model_callback)
 
     def _populate_transmission_tab(self):
+        '''
 
+        :return:
+        '''
         self._place_labelframe('transmission_wait', self.notebook['transmission'], 'Transmission Model')
 
         msg = '''Your current settings apply to a
@@ -671,6 +717,10 @@ DIF tab.'''
                 self.set_trace(f'catperc{3 * i + j + 1}', self.trace_catname)
 
     def _populate_edit_tab(self):
+        '''
+
+        :return:
+        '''
         self._place_labelframe('nodeedit', self.notebook['edit'], 'Nodes')
 
         self._place_input_label('addnode', 'nodeedit', 'Add: ', row=0, col=0)
@@ -701,20 +751,18 @@ DIF tab.'''
         self.buttons['deledge'].grid(row=2, column=4, sticky='e')
 
     def _populate_types_tab(self):
+        '''
+
+        :return:
+        '''
         colors = ['blue', 'red', 'green']
         callbacks = [self.choose_color_type1, self.choose_color_type2, self.choose_color_type3]
-        funcs = {'max_sim1': self.set_maxsim_1,
-                 'gravity1': self.set_gravity_1,
-                 'confidence1': self.set_confidence_1,
-                 'resistance1': self.set_resistance_1,
-                 'max_sim2': self.set_maxsim_2,
-                 'gravity2': self.set_gravity_2,
-                 'confidence2': self.set_confidence_2,
-                 'resistance2': self.set_resistance_2,
-                 'max_sim3': self.set_maxsim_3,
-                 'gravity3': self.set_gravity_3,
-                 'confidence3': self.set_confidence_3,
-                 'resistance3': self.set_resistance_3
+        funcs = {'max_sim1': self.set_maxsim_1, 'gravity1': self.set_gravity_1,
+                 'confidence1': self.set_confidence_1, 'resistance1': self.set_resistance_1,
+                 'max_sim2': self.set_maxsim_2, 'gravity2': self.set_gravity_2,
+                 'confidence2': self.set_confidence_2, 'resistance2': self.set_resistance_2,
+                 'max_sim3': self.set_maxsim_3, 'gravity3': self.set_gravity_3,
+                 'confidence3': self.set_confidence_3, 'resistance3': self.set_resistance_3
                  }
         for i in range(1, 4):
             self._place_labelframe(f'type{i}', self.notebook['types'], f'Agent Type {i}')
@@ -749,18 +797,31 @@ DIF tab.'''
                                                         unit_length=5, unit_width=7, command=funcs[f'resistance{i}'])
             self.inputs[f'resistance_dial{i}'].grid(row=2, column=3, pady=2)
 
-            if self.parent is not None:
-                for label in ['max_sim_', 'gravity_', 'confidence_', 'resistance_']:
-                    self.inputs[f'{label}dial{i}'].set(self.parent.inputs[f'{label}dial{i}'].get())
-
             self._place_input_entry(f'max_sim{i}', f'type{i}', row=3, sticky='ew')
             self._place_input_entry(f'gravity{i}', f'type{i}', row=3, col=1, sticky='ew')
             self._place_input_entry(f'confidence{i}', f'type{i}', row=3, col=2, sticky='ew')
             self._place_input_entry(f'resistance{i}', f'type{i}', row=3, col=3, sticky='ew')
 
+            self.vars[f'max_sim{i}'].set(1.)
+            self.inputs[f'max_sim_dial{i}'].set(100)
+            self.vars[f'gravity{i}'].set(0.)
+            self.inputs[f'gravity_dial{i}'].set(0)
+            self.vars[f'confidence{i}'].set(1.)
+            self.inputs[f'confidence_dial{i}'].set(100)
+            self.vars[f'resistance{i}'].set(0.)
+            self.inputs[f'resistance_dial{i}'].set(0)
+            self.vars[f'percent_type{i}'].set(1.)
+
+            if self.parent is not None:
+                for label in ['max_sim', 'gravity', 'confidence', 'resistance']:
+                    self.inputs[f'{label}_dial{i}'].set(self.parent.inputs[f'{label}_dial{i}'].get())
+                    self.vars[f'{label}{i}'].set(self.parent.vars[f'{label}{i}'].get())
+
             self._place_input_label(f'percent_type{i}', f'type{i}', 'Percent:', row=4)
             self._place_input_scale(f'percent_type{i}', f'type{i}', 0, 1, .01, row=4, col=1, columnspan=2, length=75)
             self._place_input_entry(f'percent_type{i}', f'type{i}', row=4, col=3, sticky='ew')
+
+            self.vars[f'percent_type{i}'].set(0.)
 
         self.inputs['gravity1'].bind("<FocusOut>", self.set_gravitydial_1)
         self.inputs['gravity2'].bind("<FocusOut>", self.set_gravitydial_2)
@@ -783,17 +844,21 @@ DIF tab.'''
         self.set_trace('typename3', self.typeperc_callback)
 
         self.vars['typename1'].set('default')
-        self.inputs['max_sim_dial1'].set(100)
         self.vars['max_sim1'].set(1.)
-        self.inputs['gravity_dial1'].set(100)
+        self.inputs['max_sim_dial1'].set(100)
         self.vars['gravity1'].set(1.)
-        self.inputs['confidence_dial1'].set(100)
+        self.inputs['gravity_dial1'].set(100)
         self.vars['confidence1'].set(1.)
-        self.inputs['resistance_dial1'].set(0)
+        self.inputs['confidence_dial1'].set(100)
         self.vars['resistance1'].set(0.)
+        self.inputs['resistance_dial1'].set(0)
         self.vars['percent_type1'].set(1.)
 
     def _populate_output_tab(self):
+        '''
+
+        :return:
+        '''
         self._place_labelframe('metrics', self.notebook['output'], 'Data Collection')
 
         self._place_input_checkbutton('collect_degree', 'metrics', row=0, col=0, sticky='w', text='Degree')
@@ -804,6 +869,11 @@ DIF tab.'''
         self._place_input_checkbutton('collect_avgdiffspace', 'metrics', row=5, col=0, sticky='w', text='Averaged Diffusion Space')
 
     def check_transmission_probs(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         for i in range(1, self.vars['numtransitions'].get() + 1):
             try:
                 if self.vars[f't_prob{i}'].get() > 1:
@@ -815,6 +885,11 @@ DIF tab.'''
                 self.inputs[f't_prob{i}'].configure(bg=ERRCOLOR)
 
     def category_update_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         num = self.vars['numtransitions'].get()
         old = []
         oldnames = []
@@ -873,6 +948,11 @@ DIF tab.'''
         self.trace_catname()
 
     def trace_catname(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         names = [self.vars[f'catname{i}'].get() for i in range(1, self.num_categories + 1) if self.vars[f'catname{i}'].get() != '']
         percs = []
         for i, _ in enumerate(names):
@@ -889,39 +969,121 @@ DIF tab.'''
                 self.reset_bgcolor([f'catperc{i+1}'])
 
     def _place_labelframe(self, tag, parent, text):
+        '''
+
+        :param tag:
+        :param parent:
+        :param text:
+        :return:
+        '''
         self.frames[tag] = tk.LabelFrame(parent, text=text, padx=5, pady=3)
         self.frames[tag].pack(fill=tk.BOTH, padx=5)
 
     def _place_input_label(self, tag, framename, text, row=0, col=0, sticky='e', columnspan=1, var=None):
+        '''
+
+        :param tag:
+        :param framename:
+        :param text:
+        :param row:
+        :param col:
+        :param sticky:
+        :param columnspan:
+        :param var:
+        :return:
+        '''
         self.labels[tag] = tk.Label(self.frames[framename], text=text, padx=2, textvariable=var)
         self.labels[tag].grid(row=row, column=col, padx=2, sticky=sticky, columnspan=columnspan)
 
     def _place_input_entry(self, tag, framename, width=5, row=0, col=0, columnspan=1, sticky='w'):
+        '''
+
+        :param tag:
+        :param framename:
+        :param width:
+        :param row:
+        :param col:
+        :param columnspan:
+        :param sticky:
+        :return:
+        '''
         self.inputs[tag] = tk.Entry(self.frames[framename], textvariable=self.vars[tag], width=width)
         self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=2, sticky=sticky)
 
     def _place_input_checkbutton(self, tag, framename, row=0, col=0, sticky='w', text=None, columnspan=1,
                                  command=None):
+        '''
+
+        :param tag:
+        :param framename:
+        :param row:
+        :param col:
+        :param sticky:
+        :param text:
+        :param columnspan:
+        :param command:
+        :return:
+        '''
         self.inputs[tag] = tk.Checkbutton(self.frames[framename], variable=self.vars[tag], text=text, padx=2,
                                           command=command)
         self.inputs[tag].grid(row=row, column=col, padx=2, sticky=sticky, columnspan=columnspan)
 
     def _place_input_optionmenu(self, tag, framename, firstoption, vals, row=0, col=0, columnspan=1, sticky='w',
                                 command=None):
+        '''
+
+        :param tag:
+        :param framename:
+        :param firstoption:
+        :param vals:
+        :param row:
+        :param col:
+        :param columnspan:
+        :param sticky:
+        :param command:
+        :return:
+        '''
         self.inputs[tag] = ttk.OptionMenu(self.frames[framename], self.vars[tag], firstoption, *vals, command=command)
         self.inputs[tag].grid(row=row, column=col, padx=2, columnspan=columnspan, sticky=sticky)
 
     def _place_input_scale(self, tag, framename, lo, hi, res, length=100, showvalue=False, row=0, col=0,
                            columnspan=1, sticky='ew', command=None, orientation='horizontal'):
+        '''
+
+        :param tag:
+        :param framename:
+        :param lo:
+        :param hi:
+        :param res:
+        :param length:
+        :param showvalue:
+        :param row:
+        :param col:
+        :param columnspan:
+        :param sticky:
+        :param command:
+        :param orientation:
+        :return:
+        '''
         self.inputs[tag] = tk.Scale(self.frames[framename], length=length, variable=self.vars[tag], label=None,
                                     resolution=res, orient=orientation, from_=lo, to=hi, showvalue=showvalue,
                                     command=command)
         self.inputs[tag].grid(row=row, column=col, columnspan=columnspan, padx=5, sticky=sticky)
 
     def update_status(self, msg, color='black'):
+        '''
+
+        :param msg:
+        :param color:
+        :return:
+        '''
         self.labels['status'].configure(text=msg, bg=color)
 
     def directed_callback(self):
+        '''
+
+        :return:
+        '''
         if not self.vars['directed'].get():
             self.vars['symmetric'].set(True)
             self.disable_vars('symmetric')
@@ -929,10 +1091,15 @@ DIF tab.'''
             self.enable_vars('symmetric')
 
     def typeperc_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         idxs = [i for i in range(1, 4) if self.vars[f'typename{i}'].get() != '']
         try:
             percs = [self.vars[f'percent_type{i}'].get() for i in idxs]
-            if sum(percs) != 1:
+            if abs(sum(percs)- 1) > .0000001:
                 for i in idxs:
                     self.inputs[f'percent_type{i}'].configure(bg=ERRCOLOR)
             else:
@@ -944,6 +1111,11 @@ DIF tab.'''
                 self.inputs[f'percent_type{i}'].configure(bg=ERRCOLOR)
 
     def n_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         try:
             n = self.vars['n'].get()
             if n < 0:
@@ -958,7 +1130,11 @@ DIF tab.'''
             self.tooltips['n'].update(TOOLTIP['n']['error'], ERRCOLOR)
 
     def weight_minmaxmean_callback(self, *args):
+        '''
 
+        :param args:
+        :return:
+        '''
         if self.inputs['weight_mean'].cget('state') == 'disabled':
             # Only compare min and max
             try:
@@ -1010,6 +1186,11 @@ DIF tab.'''
                 self.tooltips['weight_min'].update(TOOLTIP['weight_min']['normal'], NRMCOLOR)
 
     def weight_stdev_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         try:
             wmin = self.vars['weight_min'].get()
             wmax = self.vars['weight_max'].get()
@@ -1032,6 +1213,11 @@ DIF tab.'''
                 self.tooltips['weight_stdev'].update(TOOLTIP['weight_stdev']['normal'], NRMCOLOR)
 
     def weight_dist_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         d = self.vars['weight_dist'].get()
         if d == '-':
             self.disable_vars('weight_min', 'weight_max', 'weight_mean',
@@ -1049,6 +1235,12 @@ DIF tab.'''
             self.weight_minmaxmean_callback()
 
     def reset_bgcolor(self, tags, firstcall=True):
+        '''
+
+        :param tags:
+        :param firstcall:
+        :return:
+        '''
         for tag in tags:
             if firstcall:
                 self.inputs[tag].configure(bg=OKCOLOR)
@@ -1062,6 +1254,10 @@ DIF tab.'''
                 self.root.after(500, lambda: self.reset_bgcolor(tags, firstcall=False))
 
     def popoff(self):
+        '''
+
+        :return:
+        '''
         if self.parent == None and self.child == None:
             self.frames['notebook'].grid_forget()
             self.frames['status'].grid_forget()
@@ -1078,17 +1274,36 @@ DIF tab.'''
             self.frames['status'].grid_forget()
 
     def topology_popup(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         top = self.vars['topology'].get()
 
     def disable_vars(self, *vars):
+        '''
+
+        :param vars:
+        :return:
+        '''
         for var in vars:
             self.inputs[var].configure(state='disabled')
 
     def enable_vars(self, *vars):
+        '''
+
+        :param vars:
+        :return:
+        '''
         for var in vars:
             self.inputs[var].configure(state='normal')
 
     def invoke_callbacks(self):
+        '''
+
+        :return:
+        '''
         self.weight_minmaxmean_callback()
         self.weight_stdev_callback()
         self.weight_dist_callback()
@@ -1100,9 +1315,20 @@ DIF tab.'''
         self.category_update_callback()
 
     def set_trace(self, tag, callback):
+        '''
+
+        :param tag:
+        :param callback:
+        :return:
+        '''
         self.vars[tag].trace('w', callback)
 
     def update_model_callback(self, *args):
+        '''
+
+        :param args:
+        :return:
+        '''
         val = self.vars['dimensions'].get()
         if val == 'categorical':
             self.frames['diffusion'].pack_forget()
@@ -1119,6 +1345,10 @@ DIF tab.'''
             self.frames['category_distribution'].pack_forget()
 
     def set_dataplot_entries(self):
+        '''
+
+        :return:
+        '''
         if 'fig' not in self.plot:
             return
         nsubplots = self.vars['numplots'].get()
@@ -1132,6 +1362,11 @@ DIF tab.'''
             self.buttons[f'plot{i}color'].grid_forget()
 
     def set_transmission_entries(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if 'fig' not in self.plot:
             return
         nrules = self.vars['numtransitions'].get()
@@ -1151,9 +1386,18 @@ DIF tab.'''
         self.category_update_callback()
 
     def set_tooltip(self, tag):
+        '''
+
+        :param tag:
+        :return:
+        '''
         self.tooltips[tag] = ToolTip(self.inputs[tag], TOOLTIP[tag]['normal'])
 
     def construct(self):
+        '''
+
+        :return:
+        '''
         if self.graph is not None:
             self.update_status('Graph already exists.', ERRCOLOR)
             return
@@ -1168,6 +1412,10 @@ DIF tab.'''
         # self.graph.prop()
 
     def get_positions(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         layout = self.vars['layout'].get()
@@ -1188,6 +1436,10 @@ DIF tab.'''
             return networkx.random_layout(self.graph.instance)
 
     def create_plot(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         if 'ax0' not in self.plotobjects:
@@ -1235,6 +1487,11 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def check_update_subplots(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if 'axmetrics' not in self.data:
             self.data['axmetrics'] = {}
         for i in range(1, 7):
@@ -1260,6 +1517,11 @@ DIF tab.'''
                 self.update_subplot_data(i)
 
     def clear_subplot(self, i):
+        '''
+
+        :param i:
+        :return:
+        '''
         if f'ax{i}' in self.plot['axes'] and f'ax{i}' in self.plotobjects:
             if self.plotobjects[f'ax{i}'] is None:
                 return
@@ -1275,6 +1537,10 @@ DIF tab.'''
             self.plot['canvas'].draw_idle()
 
     def clear(self):
+        '''
+
+        :return:
+        '''
         self.drawing = False
         self.buttons['play'].configure(text='Play')
         del self.graph
@@ -1289,6 +1555,10 @@ DIF tab.'''
         self.update_status('Graph and data plots cleared.', OKCOLOR)
 
     def get_node_sizes(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
 
@@ -1310,6 +1580,10 @@ DIF tab.'''
             return np.array([(a * b)**1.2 + 100 for a, b in zip(rawsizes, dgr)])
 
     def get_node_labels(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         metric = self.vars['labelnodesby'].get()
@@ -1332,9 +1606,14 @@ DIF tab.'''
             dgr = networkx.degree_centrality(self.graph)
             return {node: round(dgr[node], 3) for node in self.graph}
         elif metric == 'diff. space':
-            return {node: str(self.graph.prop('diffusion_space')[node]) for node in self.graph.nodes}
+            # return {node: str(node) + str(self.graph.prop('diffusion_space')[node]) for node in self.graph.nodes}
+            return {node: str(self.graph.prop('diffusion_space')[node])[1:-1] for node in self.graph.nodes}
 
     def get_node_colors(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         metric = self.vars['colornodesby'].get()
@@ -1366,6 +1645,11 @@ DIF tab.'''
                 return {node: c[self.graph.prop('diffusion_space')[node][0]] for node in self.graph}
 
     def relabel_nodes(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         labels = self.get_node_labels()
@@ -1374,6 +1658,11 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def resize_nodes(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         s = self.get_node_sizes()
@@ -1385,6 +1674,11 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def realpha_nodes(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         alpha = self.vars['nodealpha'].get()
@@ -1392,12 +1686,22 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def recolor_nodes(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         self.plotobjects['ax0']['nodes'].set_color(self.get_node_colors().values())
         self.plot['canvas'].draw_idle()
 
     def reposition_nodes(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         self.plotobjects['ax0']['pos'] = self.get_positions()
@@ -1413,9 +1717,13 @@ DIF tab.'''
         self.realpha_nodes(None)
         self.realpha_edges(None)
         self.reposition_edges()
-        # self.plot['canvas'].draw_idle()
 
     def realpha_edges(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if self.graph is None:
             return
         alpha = self.vars['edgealpha'].get()
@@ -1431,11 +1739,20 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def get_edge_angles(self, numedges):
+        '''
+
+        :param numedges:
+        :return:
+        '''
         if numedges == 1:
             return [0.]
         return np.linspace(-.3, .3, numedges)
 
     def reposition_edges(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         pos = np.array(list(self.plotobjects['ax0']['pos'].values())).T
@@ -1453,6 +1770,11 @@ DIF tab.'''
 
 
     def update_layout_handler(self, event):
+        '''
+
+        :param event:
+        :return:
+        '''
         if not self.graph:
             return
 
@@ -1472,7 +1794,16 @@ DIF tab.'''
         for e in rmv:
             if self.graph.isgraph():
                 line = self.plotobjects['ax0']['lines'][e]
-                self.plot['axes']['ax0'].lines.remove(line)
+                # print(self.plot['axes']['ax0'].lines)
+                # print(matplotlib._get_version())
+                # print(self.plot['axes']['ax0'].lines._axes)
+                # print(self.plot['axes']['ax0'].lines._axes._children)
+
+                self.plot['axes']['ax0'].lines._axes._children.remove(line)
+                # print(self.plot['axes']['ax0'].lines._axes._children)
+
+                # self.plot['axes']['ax0'].lines.remove(line)
+
                 del self.plotobjects['ax0']['lines'][e]
             elif self.graph.isdigraph():
                 line = self.plotobjects['ax0']['lines'][e]
@@ -1568,7 +1899,12 @@ DIF tab.'''
                         self.plot['axes']['ax0'].add_patch(self.plotobjects['ax0']['lines'][e])
 
     def reangle_edges_between(self, u, v):
+        '''
 
+        :param u:
+        :param v:
+        :return:
+        '''
         edges = []
         if self.graph.ismultigraph():
             edges = [key for key in self.plotobjects['ax0']['lines'] if key[0] == u and key[1] == v]
@@ -1625,14 +1961,10 @@ DIF tab.'''
         self.recolor_nodes(None)
         self.relabel_nodes(None)
         self.plot['canvas'].draw_idle()
-        # if self.graph.ismultigraph() or self.graph.ismultidigraph():
-        #     label = None
 
     def remove_edge_from_panel(self):
         '''
-        deledgefrom
-        deledgeto
-        deledgelabel
+
         :return:
         '''
         if self.graph is None:
@@ -1675,6 +2007,10 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def step(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             self.update_status('Graph does not exist.', ERRCOLOR)
             return
@@ -1700,6 +2036,10 @@ DIF tab.'''
         self.plot['canvas'].draw_idle()
 
     def collect_data(self):
+        '''
+
+        :return:
+        '''
         names = [f'plot{i}data' for i in range(1, 7)]
         self.data['axmetrics'] = {i: self.vars[i].get() for i in names if self.vars[i].get() != '-'}
         self.data['collecting'] = set([self.data['axmetrics'][i] for i in self.data['axmetrics']])
@@ -1750,6 +2090,11 @@ DIF tab.'''
                 pass
 
     def update_subplot_data(self, i):
+        '''
+
+        :param i:
+        :return:
+        '''
         if self.graph is None:
             return
 
@@ -1779,6 +2124,7 @@ DIF tab.'''
                 self.plotobjects[f'ax{i}'][0].set_xdata(range(self.stepnum - numobs, self.stepnum + 1))
                 self.plotobjects[f'ax{i}'][0].set_ydata(data)
                 self.plot['axes'][f'ax{i}'].set_xlim([0, self.stepnum])
+                self.plot['axes'][f'ax{i}'].set_xlabel('Density')
         elif self.data['axmetrics'][f'plot{i}data'] in ['betweenness', 'closeness', 'degree', 'clustering']:
             if self.data['axmetrics'][f'plot{i}data'] in self.data:
                 data = self.data[self.data['axmetrics'][f'plot{i}data']]
@@ -1803,9 +2149,14 @@ DIF tab.'''
                         self.plotobjects[f'ax{i}'][key].set_xdata(range(self.stepnum - numobs, self.stepnum + 1))
                         self.plotobjects[f'ax{i}'][key].set_ydata(data[key])
                         self.plot['axes'][f'ax{i}'].set_xlim([0, self.stepnum])
+                        self.plot['axes'][f'ax{i}'].set_xlabel(self.data['axmetrics'][f'plot{i}data'].capitalize())
         self.plot['canvas'].draw_idle()
 
     def animate(self):
+        '''
+
+        :return:
+        '''
         if self.drawing:
             self.step()
             # Speed goes 0 to 5
@@ -1817,6 +2168,10 @@ DIF tab.'''
                 self.anim_id = self.root.after(wait, self.animate)
 
     def play(self):
+        '''
+
+        :return:
+        '''
         if self.graph is None:
             return
         if self.drawing:
@@ -1838,7 +2193,10 @@ DIF tab.'''
             # animate
 
     def get_vals_for_construct(self):
+        '''
 
+        :return:
+        '''
         types = [i for i in range(1, 4) if self.vars[f'typename{i}'].get() != '']
 
         type_dist = {}
@@ -1896,11 +2254,14 @@ DIF tab.'''
         keys = ['n', 'directed', 'symmetric', 'multiedge', 'selfloops', 'normalize', 'topology', 'saturation',
                 'weight_dist', 'weight_min', 'weight_mean', 'weight_max', 'weight_stdev', 'weight_const',
                 'dimensions', 'num_dimensions', 'visibility', 'p_connect', 'p_disconnect', 'p_update',
-                'update_method', 'distance']
+                'update_method', 'distance', 'num_connections', 'num_nodes_connect', 'num_disconnections',
+                'num_nodes_disconnect', 'num_nodes_update', 'thresh_connect', 'thresh_disconnect']
         for key in keys:
             d[key] = self.vars[key].get()
         if d['dimensions'] == 'categorical':
             d['update_method'] == 'transmission'
+        if d['dimensions'] == 'continnuous':
+            d['distance'] == 'euclidean'
         d['type_dist'] = type_dist
         d['agent_models'] = models
         d['category_dist'] = category_dist
@@ -2024,32 +2385,24 @@ DIF tab.'''
 
     def set_maxsim_2(self):
         self.vars['max_sim2'].set(self.inputs['max_sim_dial2'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_maxsim_3(self):
         self.vars['max_sim3'].set(self.inputs['max_sim_dial3'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_confidence_1(self):
         self.vars['confidence1'].set(self.inputs['confidence_dial1'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_confidence_2(self):
         self.vars['confidence2'].set(self.inputs['confidence_dial2'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_confidence_3(self):
         self.vars['confidence3'].set(self.inputs['confidence_dial3'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_resistance_1(self):
         self.vars['resistance1'].set(self.inputs['resistance_dial1'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_resistance_2(self):
         self.vars['resistance2'].set(self.inputs['resistance_dial2'].get() / 100)
-        # self.vars['gravity1'].set()
 
     def set_resistance_3(self):
         self.vars['resistance3'].set(self.inputs['resistance_dial3'].get() / 100)
-        # self.vars['gravity1'].set()

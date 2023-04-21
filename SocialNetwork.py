@@ -86,7 +86,7 @@ PROPSELECT = {# used in initial setup of graph structure
               'distance': ['hamming', 'euclidean', 'cosine'],
               'layout': ['spring', 'circle', 'spiral', 'random', 'shell'],
               'num_influencers': POSNUM,
-              'num_node_updates': POSNUM,
+              'num_nodes_update': POSNUM,
               'update_method': ['average', 'weighted average', 'transmission', 'majority', 'voter', 'qvoter'],
               'gravity': SYMBIN,
               'p_update': PROB,
@@ -1670,9 +1670,11 @@ class SocialNetwork:
 
         # Get distance between u and v, taking masks into account
         if raw:
-            d = dist(self.prop('diffusion_space')[u], self.prop('diffusion_space')[v])
+            d = dist(self.prop('diffusion_space')[u], self.prop('diffusion_space')[v],
+                     self.prop('distance'))
         else:
-            d = dist(self.prop('diffusion_space')[u], self.get_view(u, v))
+            d = dist(self.prop('diffusion_space')[u], self.get_view(u, v),
+                     self.prop('distance'))
 
         # Get the % similarity that maximizes u's reward
         # print(self.prop('agent_models'))
@@ -1758,10 +1760,12 @@ class SocialNetwork:
         num_d = self.prop('num_disconnections')
         for node in mynodes:
             if self.isgraph() or self.ismultigraph():
-                nbrs = self.neighbors(node)
+                nbrs = list(self.neighbors(node))
             else:
-                nbrs = self.successors(node)
+                nbrs = list(self.successors(node))
             possible = [j for j in nbrs if self.reward(node, j, raw=True) < self.prop('thresh_disconnect') and j != node]
+            if not possible:
+                continue
             random.shuffle(possible)
             possible = sorted(possible[:num_d])
             for c in possible:
@@ -1778,6 +1782,8 @@ class SocialNetwork:
         n = len(mynodes)
         if num > n:
             num = n
+        if num == n:
+            return mynodes
         random.shuffle(mynodes)
         return mynodes[:num]
 

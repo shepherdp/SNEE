@@ -1046,11 +1046,10 @@ def test_3_46():
     # Throw an error when trying to delete a single multiedge with the wrong label in a MultiGraph.
     s = SocialNetwork(n=2, multiedge=True)
     s.connect(0, 1, 'a')
-    try:
-        s.disconnect(0, 1, 'b')
-        return False
-    except networkx.NetworkXError:
+    e = s.disconnect(0, 1, 'b')
+    if not e:
         return True
+    return False
 
 # The 4 run of tests is for ensuring that functionality around masks is working correctly.
 
